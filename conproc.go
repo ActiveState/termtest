@@ -282,10 +282,10 @@ func (cp *ConsoleProcess) ExpectNotExitCode(exitCode int, timeout ...time.Durati
 	_, buf, err := cp.wait(timeout...)
 	matchers := []expect.Matcher{&exitCodeMatcher{exitCode, false}}
 	if err == nil {
-		if exitCode != 0 {
-			return
+		if exitCode == 0 {
+			cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, fmt.Errorf("exit code wrong: should not have been 0"))
 		}
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, fmt.Errorf("exit code wrong: should not have been 0"))
+		return
 	}
 	eexit, ok := err.(*exec.ExitError)
 	if !ok {
