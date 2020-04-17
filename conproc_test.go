@@ -26,17 +26,17 @@ type TermTestTestSuite struct {
 }
 
 func (suite *TermTestTestSuite) spawn(retainWorkDir bool, args ...string) *termtest.ConsoleProcess {
-	workDir, err := ioutil.TempDir("", "")
-	suite.Suite.Require().NoError(err, "temporary work dir created")
-	opts := termtest.Options{
-		WorkDirectory: workDir,
+	opts := &termtest.Options{
 		RetainWorkDir: retainWorkDir,
 		ObserveSend:   termtest.TestSendObserveFn(suite.Suite.T()),
 		ObserveExpect: termtest.TestExpectObserveFn(suite.Suite.T()),
 		CmdName:       suite.sessionTester,
 		Args:          args,
 	}
-	cp, err := termtest.New(opts)
+	err := opts.Normalize()
+	suite.Suite.Require().NoError(err, "normalize options")
+
+	cp, err := termtest.New(*opts)
 	suite.Suite.Require().NoError(err, "create console process")
 	return cp
 }
