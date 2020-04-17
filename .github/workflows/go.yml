@@ -13,7 +13,10 @@ jobs:
       GOPRIVATE: github.com/ActiveState/go-conpty,github.com/ActiveState/xpty,github.com/ActiveState/go-expect
       GOFLAGS: "-mod=vendor"
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
 
     - name: Set up Go 1.13
