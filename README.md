@@ -14,7 +14,7 @@ tool](https://www.activestate.com/products/platform/state-tool/)
 import (
     "testing"
 
-	"github.com/ActiveState/termtest"
+    "github.com/ActiveState/termtest"
     "github.com/stretchr/testify/suite"
 )
 
