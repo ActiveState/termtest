@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	expect "github.com/ActiveState/go-expect"
 	"github.com/ActiveState/termtest"
 	"github.com/stretchr/testify/suite"
 )
@@ -25,20 +26,21 @@ type TermTestTestSuite struct {
 	tmpDir        string
 }
 
-func (suite *TermTestTestSuite) spawn(retainWorkDir bool, args ...string) *termtest.ConsoleProcess {
-	opts := &termtest.Options{
+func (suite *TermTestTestSuite) spawnCustom(retainWorkDir bool, observer termtest.ExpectObserver, args ...string) *termtest.ConsoleProcess {
+	opts := termtest.Options{
 		RetainWorkDir: retainWorkDir,
 		ObserveSend:   termtest.TestSendObserveFn(suite.Suite.T()),
-		ObserveExpect: termtest.TestExpectObserveFn(suite.Suite.T()),
+		ObserveExpect: observer,
 		CmdName:       suite.sessionTester,
 		Args:          args,
 	}
-	err := opts.Normalize()
-	suite.Suite.Require().NoError(err, "normalize options")
-
-	cp, err := termtest.New(*opts)
+	cp, err := termtest.New(opts)
 	suite.Suite.Require().NoError(err, "create console process")
 	return cp
+}
+
+func (suite *TermTestTestSuite) spawn(retainWorkDir bool, args ...string) *termtest.ConsoleProcess {
+	return suite.spawnCustom(retainWorkDir, termtest.TestExpectObserveFn(suite.Suite.T()), args...)
 }
 
 func (suite *TermTestTestSuite) SetupSuite() {
@@ -90,6 +92,68 @@ func (suite *TermTestTestSuite) TestE2eSession() {
 			if os.Getenv("CI") != "azure" {
 				suite.Suite.Equal(c.terminalOutput, spaceRe.ReplaceAllString(cp.TrimmedSnapshot(), " "))
 			}
+		})
+	}
+}
+
+func (suite *TermTestTestSuite) TestExitCode() {
+	cases := []struct {
+		Name     string
+		Args     []string
+		ExitCode int
+	}{
+		{"is-0-expect-1", []string{}, 1},
+		{"is-1-expect-0", []string{"-exit1"}, 0},
+	}
+
+	for _, c := range cases {
+		suite.Suite.Run(c.Name, func() {
+			errorFound := false
+			cp := suite.spawnCustom(
+				false,
+				func(matchers []expect.Matcher, raw, pty string, err error) {
+					if err != nil {
+						suite.Len(matchers, 1, "one matcher failed")
+						suite.Equal(fmt.Sprintf("exit code == %d", c.ExitCode), matchers[0].Criteria())
+						errorFound = true
+					}
+				},
+				c.Args...,
+			)
+			defer cp.Close()
+			cp.ExpectExitCode(c.ExitCode, 10*time.Second)
+			suite.True(errorFound)
+		})
+	}
+}
+
+func (suite *TermTestTestSuite) TestNotExitCode() {
+	cases := []struct {
+		Name     string
+		Args     []string
+		ExitCode int
+	}{
+		{"is-0-expect-not-0", []string{}, 0},
+		{"is-1-expect-not-1", []string{"-exit1"}, 1},
+	}
+
+	for _, c := range cases {
+		suite.Suite.Run(c.Name, func() {
+			errorFound := false
+			cp := suite.spawnCustom(
+				false,
+				func(matchers []expect.Matcher, raw, pty string, err error) {
+					if err != nil {
+						suite.Len(matchers, 1, "one matcher failed")
+						suite.Equal(fmt.Sprintf("exit code != %d", c.ExitCode), matchers[0].Criteria())
+						errorFound = true
+					}
+				},
+				c.Args...,
+			)
+			defer cp.Close()
+			cp.ExpectNotExitCode(c.ExitCode, 10*time.Second)
+			suite.True(errorFound)
 		})
 	}
 }
