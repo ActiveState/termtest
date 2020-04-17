@@ -19,15 +19,13 @@ import (
 )
 
 func TestBash(t *testing.T) {
-    opts := &termtest.Options{
+    opts := termtest.Options{
         ObserveSend: termtest.TestSendObserveFn(t),
         ObserveExpect: termtest.TestExpectObserveFn(t),
         CmdName: "/bin/bash",
     }
-    err := opts.Normalize()
-    require.NoError(t, err, "normalize options")
+    cp, err := termtest.New(opts)
 
-    cp, err := termtest.New(*opts)
     require.NoError(t, err, "create console process")
     defer cp.Close()
 
