@@ -25,7 +25,6 @@ func TestBash(t *testing.T) {
         CmdName: "/bin/bash",
     }
     cp, err := termtest.New(opts)
-
     require.NoError(t, err, "create console process")
     defer cp.Close()
 
