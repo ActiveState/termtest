@@ -1,5 +1,7 @@
 # termtest
 
+![unit-tests](https://github.com/ActiveState/termtest/workflows/unit-tests/badge.svg)
+
 An automatable terminal session with send/expect controls.
 
 This package leverages the [go-expect](https://github.com/ActiveState/go-expect) package to test terminal applications on Linux, MacOS and Windows.
