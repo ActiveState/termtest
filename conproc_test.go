@@ -68,7 +68,7 @@ func (suite *TermTestTestSuite) TearDownSuite() {
 func (suite *TermTestTestSuite) TestTermTest() {
 	// terminal size is 80*30 (one newline at end of stream)
 	fillbufferOutput := string(bytes.Repeat([]byte("a"), 80*29))
-	fillRawOutput := string(bytes.Repeat([]byte("a"), 1e5))
+	fillRawOutput := string(bytes.Repeat([]byte("a"), 1e4))
 	// match at least two consecutive space character
 	spaceRe := regexp.MustCompile("  +")
 	stexp := make([]string, 0, 20)

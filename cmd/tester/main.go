@@ -14,7 +14,7 @@ import (
 
 var exit1 = flag.Bool("exit1", false, "exit the script with exit code 1")
 var sleep = flag.Bool("sleep", false, "sleep for an hour, basically never return unless interrupted")
-var fillBuffer = flag.Bool("fill-buffer", false, "print a string with 100,000 characters")
+var fillBuffer = flag.Bool("fill-buffer", false, "print a string with 100,00 characters")
 var stutter = flag.Bool("stutter", false, "print 50 messages with 50 ms delays")
 
 func main() {
@@ -43,7 +43,7 @@ func main() {
 	}
 
 	if *fillBuffer {
-		for i := 0; i < 1e5; i++ {
+		for i := 0; i < 1e4; i++ {
 			os.Stdout.Write([]byte("a"))
 		}
 		os.Stdout.Write([]byte("\n"))
