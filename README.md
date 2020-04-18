@@ -1,6 +1,8 @@
 # termtest
 
-![unit-tests](https://github.com/ActiveState/termtest/workflows/unit-tests/badge.svg)
+<p align="center">
+  <a href="https://github.com/ActiveState/termtest/actions?query=workflow%3Aunit-tests"><img alt="GitHub Actions status" src="https://github.com/ActiveState/termtest/workflows/unit-tests/badge.svg" /></a>
+</p>
 
 An automatable terminal session with send/expect controls.
 
