@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,11 +65,16 @@ func (suite *TermTestTestSuite) TearDownSuite() {
 	suite.Suite.Require().NoError(err)
 }
 
-func (suite *TermTestTestSuite) TestE2eSession() {
+func (suite *TermTestTestSuite) TestTermTest() {
 	// terminal size is 80*30 (one newline at end of stream)
 	fillbufferOutput := string(bytes.Repeat([]byte("a"), 80*29))
 	// match at least two consecutive space character
 	spaceRe := regexp.MustCompile("  +")
+	stexp := make([]string, 0, 51)
+	stexp = append(stexp, "an expected string")
+	for i := 0; i < 20; i++ {
+		stexp = append(stexp, fmt.Sprintf("stuttered %d times", i+1))
+	}
 	cases := []struct {
 		name           string
 		args           []string
@@ -78,7 +84,7 @@ func (suite *TermTestTestSuite) TestE2eSession() {
 		{"expect a string", []string{}, 0, "an expected string"},
 		{"exit 1", []string{"-exit1"}, 1, "an expected string"},
 		{"with filled buffer", []string{"-fill-buffer"}, 0, fillbufferOutput},
-		{"stuttering", []string{"-stutter"}, 0, "an expected string stuttered 1 times stuttered 2 times stuttered 3 times stuttered 4 times stuttered 5 times"},
+		{"stuttering", []string{"-stutter"}, 0, strings.Join(stexp, " ")},
 	}
 
 	for _, c := range cases {
@@ -86,12 +92,9 @@ func (suite *TermTestTestSuite) TestE2eSession() {
 			// create a new test-session
 			cp := suite.spawn(false, c.args...)
 			defer cp.Close()
-			cp.Expect("an expected string", 10*time.Second)
+			_, _ = cp.Expect("an expected string", 10*time.Second)
 			cp.ExpectExitCode(c.exitCode, 20*time.Second)
-			// XXX: On Azure CI pipelines, the terminal output cannot be matched.  Needs investigation and a fix.
-			if os.Getenv("CI") != "azure" {
-				suite.Suite.Equal(c.terminalOutput, spaceRe.ReplaceAllString(cp.TrimmedSnapshot(), " "))
-			}
+			suite.Suite.Equal(c.terminalOutput, spaceRe.ReplaceAllString(cp.TrimmedSnapshot(), " "))
 		})
 	}
 }
@@ -158,15 +161,12 @@ func (suite *TermTestTestSuite) TestNotExitCode() {
 	}
 }
 
-func (suite *TermTestTestSuite) TestE2eSessionInterrupt() {
-	if os.Getenv("CI") == "azure" {
-		suite.Suite.T().Skip("session interrupt not working on Azure CI ATM")
-	}
+func (suite *TermTestTestSuite) TestInterrupt() {
 	// create a new test-session
 	cp := suite.spawn(false, "-sleep", "-exit1")
 	defer cp.Close()
 
-	cp.Expect("an expected string", 10*time.Second)
+	_, _ = cp.Expect("an expected string", 10*time.Second)
 	cp.SendCtrlC()
 	cp.ExpectExitCode(123, 10*time.Second)
 }

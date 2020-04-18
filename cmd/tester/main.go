@@ -15,7 +15,7 @@ import (
 var exit1 = flag.Bool("exit1", false, "exit the script with exit code 1")
 var sleep = flag.Bool("sleep", false, "sleep for an hour, basically never return unless interrupted")
 var fillBuffer = flag.Bool("fill-buffer", false, "print a string with 1,000,000 characters")
-var stutter = flag.Bool("stutter", false, "print 5 messages with 50 ms delays")
+var stutter = flag.Bool("stutter", false, "print 50 messages with 50 ms delays")
 
 func main() {
 	c := make(chan os.Signal, 1)
@@ -50,7 +50,7 @@ func main() {
 	}
 
 	if *stutter {
-		for i := 0; i < 5; i++ {
+		for i := 0; i < 20; i++ {
 			fmt.Printf("stuttered %d times\n", i+1)
 			time.Sleep(50 * time.Millisecond)
 		}

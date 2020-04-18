@@ -173,30 +173,30 @@ func (cp *ConsoleProcess) TrimmedSnapshot() string {
 // ExpectRe listens to the terminal output and returns once the expected regular expression is matched or
 // a timeout occurs
 // Default timeout is 10 seconds
-func (cp *ConsoleProcess) ExpectRe(value string, timeout ...time.Duration) {
+func (cp *ConsoleProcess) ExpectRe(value string, timeout ...time.Duration) (string, error) {
 	opts := []expect.ExpectOpt{expect.RegexpPattern(value)}
 	if len(timeout) > 0 {
 		opts = append(opts, expect.WithTimeout(timeout[0]))
 	}
 
-	cp.console.Expect(opts...)
+	return cp.console.Expect(opts...)
 }
 
 // Expect listens to the terminal output and returns once the expected value is found or
 // a timeout occurs
 // Default timeout is 10 seconds
-func (cp *ConsoleProcess) Expect(value string, timeout ...time.Duration) {
+func (cp *ConsoleProcess) Expect(value string, timeout ...time.Duration) (string, error) {
 	opts := []expect.ExpectOpt{expect.String(value)}
 	if len(timeout) > 0 {
 		opts = append(opts, expect.WithTimeout(timeout[0]))
 	}
 
-	cp.console.Expect(opts...)
+	return cp.console.Expect(opts...)
 }
 
 // WaitForInput returns once a shell prompt is active on the terminal
 // Default timeout is 10 seconds
-func (cp *ConsoleProcess) WaitForInput(timeout ...time.Duration) {
+func (cp *ConsoleProcess) WaitForInput(timeout ...time.Duration) (string, error) {
 	usr, err := user.Current()
 	if err != nil {
 		panic(err)
@@ -208,7 +208,7 @@ func (cp *ConsoleProcess) WaitForInput(timeout ...time.Duration) {
 	}
 
 	cp.SendLine(msg)
-	cp.Expect("wait_ready_"+usr.HomeDir, timeout...)
+	return cp.Expect("wait_ready_"+usr.HomeDir, timeout...)
 }
 
 // SendLine sends a new line to the terminal, as if a user typed it
@@ -314,7 +314,7 @@ func (cp *ConsoleProcess) waitForEOF(processErr error, deadline time.Time, buf *
 	}
 	b, expErr := cp.console.Expect(
 		expect.OneOf(expect.PTSClosed, expect.StdinClosed, expect.EOF),
-		expect.WithTimeout(deadline.Sub(time.Now())),
+		expect.WithTimeout(time.Until(deadline)),
 	)
 	_, err := buf.WriteString(b)
 	if err != nil {
