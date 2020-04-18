@@ -68,23 +68,27 @@ func (suite *TermTestTestSuite) TearDownSuite() {
 func (suite *TermTestTestSuite) TestTermTest() {
 	// terminal size is 80*30 (one newline at end of stream)
 	fillbufferOutput := string(bytes.Repeat([]byte("a"), 80*29))
+	fillRawOutput := string(bytes.Repeat([]byte("a"), 1e5))
 	// match at least two consecutive space character
 	spaceRe := regexp.MustCompile("  +")
-	stexp := make([]string, 0, 51)
-	stexp = append(stexp, "an expected string")
+	stexp := make([]string, 0, 20)
+	stexpTerm := make([]string, 0, 21)
+	stexpTerm = append(stexpTerm, "an expected string")
 	for i := 0; i < 20; i++ {
 		stexp = append(stexp, fmt.Sprintf("stuttered %d times", i+1))
 	}
+	stexpTerm = append(stexpTerm, stexp...)
 	cases := []struct {
 		name           string
 		args           []string
 		exitCode       int
 		terminalOutput string
+		rawOutput      string
 	}{
-		{"expect a string", []string{}, 0, "an expected string"},
-		{"exit 1", []string{"-exit1"}, 1, "an expected string"},
-		{"with filled buffer", []string{"-fill-buffer"}, 0, fillbufferOutput},
-		{"stuttering", []string{"-stutter"}, 0, strings.Join(stexp, " ")},
+		{"expect a string", []string{}, 0, "an expected string", ""},
+		{"exit 1", []string{"-exit1"}, 1, "an expected string", ""},
+		{"with filled buffer", []string{"-fill-buffer"}, 0, fillbufferOutput, fillRawOutput},
+		{"stuttering", []string{"-stutter"}, 0, strings.Join(stexpTerm, " "), strings.Join(stexp, "\n")},
 	}
 
 	for _, c := range cases {
@@ -93,7 +97,8 @@ func (suite *TermTestTestSuite) TestTermTest() {
 			cp := suite.spawn(false, c.args...)
 			defer cp.Close()
 			_, _ = cp.Expect("an expected string", 10*time.Second)
-			cp.ExpectExitCode(c.exitCode, 20*time.Second)
+			buf, _ := cp.ExpectExitCode(c.exitCode, 20*time.Second)
+			suite.Suite.Equal(c.rawOutput, strings.TrimSpace(buf))
 			suite.Suite.Equal(c.terminalOutput, spaceRe.ReplaceAllString(cp.TrimmedSnapshot(), " "))
 		})
 	}

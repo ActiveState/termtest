@@ -261,40 +261,48 @@ func (em *exitCodeMatcher) Criteria() interface{} {
 }
 
 // ExpectExitCode waits for the program under test to terminate, and checks that the returned exit code meets expectations
-func (cp *ConsoleProcess) ExpectExitCode(exitCode int, timeout ...time.Duration) {
+func (cp *ConsoleProcess) ExpectExitCode(exitCode int, timeout ...time.Duration) (string, error) {
 	_, buf, err := cp.wait(timeout...)
 	if err == nil && exitCode == 0 {
-		return
+		return buf, nil
 	}
 	matchers := []expect.Matcher{&exitCodeMatcher{exitCode, true}}
 	eexit, ok := err.(*exec.ExitError)
 	if !ok {
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, fmt.Errorf("process failed with error: %v", err))
-		return
+		e := fmt.Errorf("process failed with error: %v", err)
+		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
+		return buf, e
 	}
 	if eexit.ExitCode() != exitCode {
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, fmt.Errorf("exit code wrong: was %d (expected %d)", eexit.ExitCode(), exitCode))
+		e := fmt.Errorf("exit code wrong: was %d (expected %d)", eexit.ExitCode(), exitCode)
+		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
+		return buf, e
 	}
+	return buf, nil
 }
 
 // ExpectNotExitCode waits for the program under test to terminate, and checks that the returned exit code is not the value provide
-func (cp *ConsoleProcess) ExpectNotExitCode(exitCode int, timeout ...time.Duration) {
+func (cp *ConsoleProcess) ExpectNotExitCode(exitCode int, timeout ...time.Duration) (string, error) {
 	_, buf, err := cp.wait(timeout...)
 	matchers := []expect.Matcher{&exitCodeMatcher{exitCode, false}}
 	if err == nil {
 		if exitCode == 0 {
 			cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, fmt.Errorf("exit code wrong: should not have been 0"))
 		}
-		return
+		return buf, nil
 	}
 	eexit, ok := err.(*exec.ExitError)
 	if !ok {
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, fmt.Errorf("process failed with error: %v", err))
-		return
+		e := fmt.Errorf("process failed with error: %v", err)
+		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
+		return buf, e
 	}
 	if eexit.ExitCode() == exitCode {
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, fmt.Errorf("exit code wrong: should not have been %d", exitCode))
+		e := fmt.Errorf("exit code wrong: should not have been %d", exitCode)
+		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
+		return buf, e
 	}
+	return buf, nil
 }
 
 // Wait waits for the program under test to terminate, not caring about the exit code at all
@@ -354,31 +362,41 @@ func (cp *ConsoleProcess) wait(timeout ...time.Duration) (*os.ProcessState, stri
 		t = timeout[0]
 	}
 
-	deadline := time.Now().Add(t)
-	buf := new(bytes.Buffer)
-	// run in a tight loop until process finished or until we timeout
-	for {
-		err := cp.console.Drain(100*time.Millisecond, buf)
+	finalErrCh := make(chan error)
+	defer close(finalErrCh)
+	var buf string
+	go func() {
+		b, err := cp.console.Expect(
+			expect.OneOf(expect.PTSClosed, expect.StdinClosed, expect.EOF),
+			expect.WithTimeout(t),
+		)
+		buf = b
+		finalErrCh <- err
+	}()
 
-		if time.Now().After(deadline) {
-			log.Println("killing process after timeout")
-			cp.forceKill()
-			return nil, buf.String(), &errWaitTimeout{fmt.Errorf("timeout waiting for exit code")}
+	select {
+	case perr := <-cp.errs:
+		// wait for the expect call to find EOF in stream
+		expErr := <-finalErrCh
+		// close the readers after all bytes from the terminal have been consumed
+		err := cp.console.CloseReaders()
+		if err != nil {
+			log.Printf("Failed to close the console readers: %v", err)
 		}
-		// we only expect timeout or EOF errors here, otherwise we will kill the process
-		if err != nil && !(os.IsTimeout(err) || err == io.EOF) {
-			log.Printf("killing process after unknown error: %v\n", err)
-			cp.forceKill()
-			return nil, buf.String(), fmt.Errorf("unexpected error while waiting for exit code: %v", err)
-
+		// we only expect timeout or EOF errors here, otherwise something went wrong
+		if expErr != nil && !(os.IsTimeout(expErr) || expErr == io.EOF) {
+			return nil, buf, fmt.Errorf("unexpected error while waiting for exit code: %v", expErr)
 		}
-
-		select {
-		case perr := <-cp.errs:
-			return cp.waitForEOF(perr, deadline, buf)
-		case <-cp.ctx.Done():
-			return nil, buf.String(), fmt.Errorf("ConsoleProcess context canceled")
-		default:
-		}
+		return cp.cmd.ProcessState, buf, perr
+	case <-time.After(t):
+		// we can ignore the error from the expect (this will also time out)
+		<-finalErrCh
+		log.Println("killing process after timeout")
+		cp.forceKill()
+		return nil, buf, &errWaitTimeout{fmt.Errorf("timeout waiting for exit code")}
+	case <-cp.ctx.Done():
+		// wait until expect returns (will be forced by closed console)
+		<-finalErrCh
+		return nil, buf, fmt.Errorf("ConsoleProcess context canceled")
 	}
 }
