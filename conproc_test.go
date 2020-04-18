@@ -6,6 +6,7 @@ package termtest_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -105,8 +106,8 @@ func (suite *TermTestTestSuite) TestTermTest() {
 				suite.Suite.T().Log("Skipping checks on Windows CI. Needs fix!")
 				return
 			}
-			suite.Suite.Equal(c.rawOutput, strings.TrimSpace(buf))
-			suite.Suite.Equal(c.terminalOutput, spaceRe.ReplaceAllString(cp.TrimmedSnapshot(), " "))
+			suite.Suite.Equal(c.rawOutput, strings.TrimSpace(buf), "raw buffer")
+			suite.Suite.Equal(c.terminalOutput, spaceRe.ReplaceAllString(cp.TrimmedSnapshot(), " "), "terminal snapshot")
 		})
 	}
 }
@@ -136,8 +137,9 @@ func (suite *TermTestTestSuite) TestExitCode() {
 				c.Args...,
 			)
 			defer cp.Close()
-			cp.ExpectExitCode(c.ExitCode, 10*time.Second)
-			suite.True(errorFound)
+			_, err := cp.ExpectExitCode(c.ExitCode, 10*time.Second)
+			suite.Error(err)
+			suite.True(errorFound, "expect to observe an error")
 		})
 	}
 }
@@ -167,10 +169,31 @@ func (suite *TermTestTestSuite) TestNotExitCode() {
 				c.Args...,
 			)
 			defer cp.Close()
-			cp.ExpectNotExitCode(c.ExitCode, 10*time.Second)
-			suite.True(errorFound)
+			_, err := cp.ExpectNotExitCode(c.ExitCode, 10*time.Second)
+			suite.Error(err)
+			suite.True(errorFound, "expect to observe an error")
 		})
 	}
+}
+
+func (suite *TermTestTestSuite) TestTimeout() {
+	var errorFound bool
+	cp := suite.spawnCustom(
+		false,
+		func(matchers []expect.Matcher, raw, pty string, err error) {
+			if err != nil && errors.Is(err, termtest.ErrWaitTimeout) {
+				suite.Len(matchers, 1, "one matcher failed")
+				suite.Equal("exit code == 0", matchers[0].Criteria())
+				errorFound = true
+			}
+		},
+		"-sleep",
+	)
+	defer cp.Close()
+	_, err := cp.ExpectExitCode(0, 100*time.Millisecond)
+	suite.Error(err)
+	suite.True(errors.Is(err, termtest.ErrWaitTimeout), "expected timeout error, got %v", err)
+	suite.True(errorFound, "expect to observe an error")
 }
 
 func (suite *TermTestTestSuite) TestInterrupt() {

@@ -5,7 +5,6 @@
 package termtest
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -36,6 +35,9 @@ type errWaitTimeout struct {
 }
 
 func (errWaitTimeout) Timeout() bool { return true }
+
+// ErrWaitTimeout is returned when we time out waiting for the console process to exit
+var ErrWaitTimeout = errWaitTimeout{fmt.Errorf("timeout waiting for exit code")}
 
 // ConsoleProcess bonds a command with a pseudo-terminal for automation
 type ConsoleProcess struct {
@@ -269,7 +271,7 @@ func (cp *ConsoleProcess) ExpectExitCode(exitCode int, timeout ...time.Duration)
 	matchers := []expect.Matcher{&exitCodeMatcher{exitCode, true}}
 	eexit, ok := err.(*exec.ExitError)
 	if !ok {
-		e := fmt.Errorf("process failed with error: %v", err)
+		e := fmt.Errorf("process failed with error: %w", err)
 		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
 		return buf, e
 	}
@@ -287,13 +289,15 @@ func (cp *ConsoleProcess) ExpectNotExitCode(exitCode int, timeout ...time.Durati
 	matchers := []expect.Matcher{&exitCodeMatcher{exitCode, false}}
 	if err == nil {
 		if exitCode == 0 {
-			cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, fmt.Errorf("exit code wrong: should not have been 0"))
+			e := fmt.Errorf("exit code wrong: should not have been 0")
+			cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
+			return buf, e
 		}
 		return buf, nil
 	}
 	eexit, ok := err.(*exec.ExitError)
 	if !ok {
-		e := fmt.Errorf("process failed with error: %v", err)
+		e := fmt.Errorf("process failed with error: %w", err)
 		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
 		return buf, e
 	}
@@ -311,32 +315,6 @@ func (cp *ConsoleProcess) Wait(timeout ...time.Duration) {
 	if err != nil {
 		fmt.Printf("Process exited with error: %v (This is not fatal when using Wait())", err)
 	}
-}
-
-// waitForEOF is a helper function that consumes all bytes until we reach an EOF signal
-// and then closes up all the readers.
-// This function is called as a last step by cp.wait()
-func (cp *ConsoleProcess) waitForEOF(processErr error, deadline time.Time, buf *bytes.Buffer) (*os.ProcessState, string, error) {
-	if time.Now().After(deadline) {
-		return cp.cmd.ProcessState, buf.String(), &errWaitTimeout{fmt.Errorf("timeout waiting for exit code")}
-	}
-	b, expErr := cp.console.Expect(
-		expect.OneOf(expect.PTSClosed, expect.StdinClosed, expect.EOF),
-		expect.WithTimeout(time.Until(deadline)),
-	)
-	_, err := buf.WriteString(b)
-	if err != nil {
-		log.Printf("Failed to append to buffer: %v", err)
-	}
-
-	err = cp.console.CloseReaders()
-	if err != nil {
-		log.Printf("Failed to close the console readers: %v", err)
-	}
-	if expErr != nil {
-		return nil, buf.String(), expErr
-	}
-	return cp.cmd.ProcessState, buf.String(), processErr
 }
 
 // forceKill kills the underlying process and waits until it return the exit error
@@ -393,7 +371,7 @@ func (cp *ConsoleProcess) wait(timeout ...time.Duration) (*os.ProcessState, stri
 		<-finalErrCh
 		log.Println("killing process after timeout")
 		cp.forceKill()
-		return nil, buf, &errWaitTimeout{fmt.Errorf("timeout waiting for exit code")}
+		return nil, buf, ErrWaitTimeout
 	case <-cp.ctx.Done():
 		// wait until expect returns (will be forced by closed console)
 		<-finalErrCh
