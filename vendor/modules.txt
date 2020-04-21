@@ -1,6 +1,6 @@
 # github.com/ActiveState/go-conpty v0.1.1
 github.com/ActiveState/go-conpty
-# github.com/ActiveState/go-expect v0.0.0-20200417191304-164057b5e878
+# github.com/ActiveState/go-expect v0.0.0-20200417191304-164057b5e878 => ../go-expect
 ## explicit
 github.com/ActiveState/go-expect
 github.com/ActiveState/go-expect/internal/osutils
@@ -29,3 +29,4 @@ golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
+# github.com/ActiveState/go-expect => ../go-expect

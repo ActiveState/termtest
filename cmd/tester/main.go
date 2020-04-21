@@ -43,8 +43,11 @@ func main() {
 	}
 
 	if *fillBuffer {
-		for i := 0; i < 1e4; i++ {
-			os.Stdout.Write([]byte("a"))
+		for i := 0; i < 300; i++ {
+			os.Stdout.WriteString(fmt.Sprintf(":%03d:", i))
+			for j := 5; j < 80; j++ {
+				os.Stdout.WriteString(fmt.Sprintf("%d", j%10))
+			}
 		}
 		os.Stdout.Write([]byte("\n"))
 	}

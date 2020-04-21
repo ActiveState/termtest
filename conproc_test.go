@@ -5,7 +5,6 @@
 package termtest_test
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -68,9 +67,19 @@ func (suite *TermTestTestSuite) TearDownSuite() {
 }
 
 func (suite *TermTestTestSuite) TestTermTest() {
+	buf := make([]byte, 300*80)
+	k := 0
+	for i := 0; i < 300; i++ {
+		copy(buf[k:k+5], []byte(fmt.Sprintf(":%03d:", i)))
+		k += 5
+		for j := 5; j < 80; j++ {
+			buf[k] = byte(fmt.Sprintf("%d", j%10)[0])
+			k++
+		}
+	}
 	// terminal size is 80*30 (one newline at end of stream)
-	fillbufferOutput := string(bytes.Repeat([]byte("a"), 80*29))
-	fillRawOutput := string(bytes.Repeat([]byte("a"), 1e4))
+	fillbufferOutput := string(buf[len(buf)-80*29:])
+	fillRawOutput := string(buf)
 	// match at least two consecutive space character
 	spaceRe := regexp.MustCompile("  +")
 	stexp := make([]string, 0, 20)

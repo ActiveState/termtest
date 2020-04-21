@@ -16,7 +16,6 @@ package expect
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -24,7 +23,6 @@ import (
 	"os"
 	"runtime"
 	"time"
-	"unicode/utf8"
 
 	"github.com/ActiveState/go-expect/internal/osutils"
 	"github.com/ActiveState/xpty"
@@ -186,7 +184,7 @@ func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	// On Linux and Windows, bytes seem to be discarded, whereas MacOS just blocks the entire process.
 	// If expected strings cannot be matched because of missing bytes, consider increasing the buffer
 	// size even more, or switching to a `bytes.Buffer`.
-	c.runeReader = bufio.NewReaderSize(passthroughPipe, 10*1024)
+	c.runeReader = bufio.NewReaderSize(passthroughPipe, 100)
 	c.closers = closers
 
 	for _, stdin := range options.Stdins {
@@ -202,7 +200,7 @@ func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 }
 
 // Tty returns Console's pts (slave part of a pty). A pseudoterminal, or pty is
-// a pair of psuedo-devices, one of which, the slave, emulates a real text
+// a pair of pseudo-devices, one of which, the slave, emulates a real text
 // terminal device.
 func (c *Console) Tty() *os.File {
 	return c.Pty.Tty()
@@ -211,26 +209,12 @@ func (c *Console) Tty() *os.File {
 // Drain reads from the input stream until it catches up with the incoming stream off data.
 // This function can unblock the writer, if no further reads from the passthrough pipe are
 // needed
-func (c *Console) Drain(t time.Duration, buf *bytes.Buffer) error {
-	writer := io.MultiWriter(append(c.opts.Stdouts, buf)...)
-	runeWriter := bufio.NewWriterSize(writer, utf8.UTFMax)
-
-	c.passthroughPipe.SetReadDeadline(time.Now().Add(t))
+func (c *Console) WaitTillDrained() {
 	for {
-		r, _, err := c.runeReader.ReadRune()
-		if err != nil {
-			return err
+		if c.passthroughPipe.IsBlocked() {
+			return
 		}
-		_, err = runeWriter.WriteRune(r)
-		if err != nil {
-			return err
-		}
-
-		// Immediately flush rune to the underlying writers.
-		err = runeWriter.Flush()
-		if err != nil {
-			return err
-		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 

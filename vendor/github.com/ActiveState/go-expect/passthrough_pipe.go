@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sync/atomic"
 	"time"
 )
 
@@ -36,6 +37,7 @@ type PassthroughPipe struct {
 	deadline time.Time
 	ctx      context.Context
 	cancel   context.CancelFunc
+	lastRead int64
 }
 
 // NewPassthroughPipe returns a new pipe for a io.Reader that passes through
@@ -53,6 +55,11 @@ func NewPassthroughPipe(r io.Reader) *PassthroughPipe {
 	return &p
 }
 
+func (p *PassthroughPipe) IsBlocked() bool {
+	lr := atomic.LoadInt64(&p.lastRead)
+	return time.Now().UTC().UnixNano()-lr > 20*1e3
+}
+
 // SetReadDeadline sets a deadline for a successful read
 func (p *PassthroughPipe) SetReadDeadline(d time.Time) {
 	p.deadline = d
@@ -60,20 +67,8 @@ func (p *PassthroughPipe) SetReadDeadline(d time.Time) {
 
 // Close releases all resources allocated by the pipe
 func (p *PassthroughPipe) Close() error {
-	p.Drain()
 	p.cancel()
 	return nil
-}
-
-// Drain flushes the pipe by consuming all the data written to it
-func (p *PassthroughPipe) Drain() {
-	buf := make([]byte, 1<<5)
-	for {
-		n, err := p.rdr.Read(buf)
-		if n == 0 || err != nil {
-			return
-		}
-	}
 }
 
 type chunk struct {
@@ -87,6 +82,7 @@ func (p *PassthroughPipe) Read(buf []byte) (n int, err error) {
 	cs := make(chan chunk)
 	done := make(chan struct{})
 	defer close(done)
+	atomic.StoreInt64(&p.lastRead, time.Now().UTC().UnixNano())
 
 	go func() {
 		defer close(cs)
