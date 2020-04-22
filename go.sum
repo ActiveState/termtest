@@ -1,7 +1,5 @@
 github.com/ActiveState/go-conpty v0.1.1 h1:Bc2Nwn667t5RueuBGEvEHM8ZoEyTbfOw7LhEKdm1iHI=
 github.com/ActiveState/go-conpty v0.1.1/go.mod h1:L7reVBZYmffFShrztTQzymBRp7pSkLIEkjLvv7/Wqng=
-github.com/ActiveState/go-expect v0.0.0-20200417191304-164057b5e878 h1:dN7x2w2QZZGL764q1ImxAmMqZKlUhY0JJCag6+cAG8U=
-github.com/ActiveState/go-expect v0.0.0-20200417191304-164057b5e878/go.mod h1:0e6cYjneSJu01p3Md6xk1txrZty+Jbia5PXIRx3LFf4=
 github.com/ActiveState/vt10x v1.1.0 h1:0+Ha/nEPq/rq8cpGgIGHeaG2KfojWLdwv69LobgcJRg=
 github.com/ActiveState/vt10x v1.1.0/go.mod h1:GQSo5+/OFdQ//xPd8gAvUiyHq0OYY++hjrd+Q/3ERos=
 github.com/ActiveState/xpty v0.1.1 h1:fCiLwvj7rCWb59JDlJAEXkGlXe4C+5RrU+/376vkqqM=
