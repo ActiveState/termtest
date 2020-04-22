@@ -73,7 +73,7 @@ func New(opts Options) (*ConsoleProcess, error) {
 
 	console, err := expect.NewConsole(
 		expect.WithDefaultTimeout(opts.DefaultTimeout),
-		expect.WithReadBufferMutation(vtstrip.Strip),
+		// expect.WithReadBufferMutation(vtstrip.Strip),
 		expect.WithSendObserver(expect.SendObserver(opts.ObserveSend)),
 		expect.WithExpectObserver(expectObs.observe),
 	)
