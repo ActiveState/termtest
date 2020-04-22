@@ -38,8 +38,8 @@ jobs:
       run: go test -v .
 
     - name: Upload text.log
-        uses: actions/upload-artifact@v1
-        with:
-          name: raw-log
-          path: text.log
+      uses: actions/upload-artifact@v1
+      with:
+        name: raw-log
+        path: text.log
 
