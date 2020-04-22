@@ -99,7 +99,7 @@ func (p *PassthroughPipe) Read(buf []byte) (n int, err error) {
 	go func() {
 		defer close(cs)
 
-		if p.ctx.Err() != nil || p.deadline.Sub(time.Now()) > 0 {
+		if p.ctx.Err() != nil || p.deadline.Before(time.Now()) {
 			return
 		}
 
