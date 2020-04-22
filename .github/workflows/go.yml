@@ -32,16 +32,17 @@ jobs:
     - name: Build
       run: go build -v .
 
-    - name: Console mode
-      run: go run ./cmd/tester -console-mode
-
     - name: Test
       run: go test -v .
+
+    - name: Rename artifact
+      run: mv text.log text-${{ matrix.os }}.log
+      if: always()
 
     - name: Upload text.log
       uses: actions/upload-artifact@v1
       with:
         name: raw-log
-        path: text.log
+        path: text-${{ matrix.os }}.log
       if: always()
 
