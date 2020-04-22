@@ -191,7 +191,7 @@ func (sm *stringMatcher) Match(v interface{}) bool {
 	if !ok {
 		return false
 	}
-	if strings.Contains(buf.String(), sm.str) {
+	if strings.HasSuffix(buf.String(), sm.str) {
 		return true
 	}
 	return false

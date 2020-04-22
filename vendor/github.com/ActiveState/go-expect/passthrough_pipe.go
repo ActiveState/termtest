@@ -68,7 +68,7 @@ func NewPassthroughPipe(r io.Reader) *PassthroughPipe {
 
 func (p *PassthroughPipe) IsBlocked() bool {
 	lr := atomic.LoadInt64(&p.lastRead)
-	return time.Now().UTC().UnixNano()-lr > 20*1e3
+	return time.Duration(time.Now().UTC().UnixNano()-lr) > 500*time.Microsecond
 }
 
 // SetReadDeadline sets a deadline for a successful read
