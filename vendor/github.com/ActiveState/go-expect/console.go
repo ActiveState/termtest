@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"runtime"
 	"time"
 
 	"github.com/ActiveState/go-expect/internal/osutils"
@@ -174,12 +173,7 @@ func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	}
 
 	var pty *xpty.Xpty
-	// On Windows we are adding an extra row, because the last row appears to be empty usually
-	rows := uint16(30)
-	if runtime.GOOS == "windows" {
-		rows = 31
-	}
-	pty, err := xpty.New(80, rows, true)
+	pty, err := xpty.New(80, 30, true)
 	if err != nil {
 		return nil, err
 	}
