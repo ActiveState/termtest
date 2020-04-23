@@ -207,7 +207,7 @@ func (rm *regexpMatcher) Match(v interface{}) bool {
 	if !ok {
 		return false
 	}
-	return rm.re.MatchString(ms.TermState.UnwrappedStringToCursorFrom(ms.LastMatchY, ms.LastMatchX))
+	return rm.re.MatchString(ms.UnwrappedStringToCursorFromMatch(0))
 }
 
 func (rm *regexpMatcher) Criteria() interface{} {

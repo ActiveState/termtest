@@ -15,7 +15,6 @@
 package expect
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -35,23 +34,38 @@ import (
 // input back on it's tty. Console can also multiplex other sources of input
 // and multiplex its output to other writers.
 type Console struct {
-	opts            ConsoleOpts
-	Pty             *xpty.Xpty
-	matchState      *MatchState
-	passthroughPipe *PassthroughPipe
-	runeReader      *bufio.Reader
-	closers         []io.Closer
+	opts       ConsoleOpts
+	Pty        *xpty.Xpty
+	MatchState *MatchState
+	closers    []io.Closer
+}
+
+type coord struct {
+	x int
+	y int
 }
 
 type MatchState struct {
 	TermState  *vt10x.State
 	Buf        *bytes.Buffer
-	LastMatchX int
-	LastMatchY int
+	prevCoords []coord
+}
+
+func (ms *MatchState) UnwrappedStringToCursorFromMatch(n int) string {
+	var c coord
+	numCoords := len(ms.prevCoords)
+	if numCoords > 0 {
+		if n < numCoords {
+			c = ms.prevCoords[numCoords-1-n]
+		}
+	}
+	return ms.TermState.UnwrappedStringToCursorFrom(c.y, c.x)
 }
 
 func (ms *MatchState) markMatch() {
-	ms.LastMatchX, ms.LastMatchY = ms.TermState.GlobalCursor()
+	c := coord{}
+	c.x, c.y = ms.TermState.GlobalCursor()
+	ms.prevCoords = append(ms.prevCoords, c)
 }
 
 // ConsoleOpt allows setting Console options.
@@ -169,29 +183,15 @@ func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	if err != nil {
 		return nil, err
 	}
-	closers := append(options.Closers)
 
 	c := &Console{
 		opts: options,
 		Pty:  pty,
-		matchState: &MatchState{
+		MatchState: &MatchState{
 			TermState: pty.State,
 		},
+		closers: append(options.Closers),
 	}
-	passthroughPipe := NewPassthroughPipe(c)
-
-	closers = append(options.Closers, passthroughPipe)
-	c.passthroughPipe = passthroughPipe
-
-	// We provide a generous 10kB buffer for the rune-reader, because when the buffer is full,
-	// the writer gets blocked.  In our case the writer is ultimately the terminal output pipe,
-	// ie., the pseudo-terminal.  It seems OS dependent on how the pseudo-terminal reacts when
-	// it cannot write anymore:
-	// On Linux and Windows, bytes seem to be discarded, whereas MacOS just blocks the entire process.
-	// If expected strings cannot be matched because of missing bytes, consider increasing the buffer
-	// size even more, or switching to a `bytes.Buffer`.
-	c.runeReader = bufio.NewReaderSize(passthroughPipe, 100)
-	c.closers = closers
 
 	for _, stdin := range options.Stdins {
 		go func(stdin io.Reader) {
@@ -212,23 +212,6 @@ func (c *Console) Tty() *os.File {
 	return c.Pty.Tty()
 }
 
-// WaitTillDrained waits the PassthroughPipe is blocked in the reading state.
-// When this function returns, the PassthroughPipe should be blocked in the
-// reading state waiting for more input.
-func (c *Console) WaitTillDrained() {
-	for {
-		if c.passthroughPipe.IsBlocked() {
-			return
-		}
-		time.Sleep(200 * time.Microsecond)
-	}
-}
-
-// Read reads bytes b from Console's tty.
-func (c *Console) Read(b []byte) (int, error) {
-	return c.Pty.TerminalOutPipe().Read(b)
-}
-
 // Write writes bytes b to Console's tty.
 func (c *Console) Write(b []byte) (int, error) {
 	c.Logf("console write: %q", b)
@@ -241,28 +224,22 @@ func (c *Console) Fd() uintptr {
 	return c.Pty.TerminalOutFd()
 }
 
-// CloseTTY closes Console's tty. Calling CloseTTY will unblock Expect and ExpectEOF.
-func (c *Console) CloseTTY() error {
-	// close the tty in the end
-	return c.Pty.Close()
-}
-
-func (c *Console) CloseReaders() error {
+func (c *Console) CloseReaders() (err error) {
 	for _, fd := range c.closers {
-		err := fd.Close()
+		err = fd.Close()
 		if err != nil {
 			c.Logf("failed to close: %s", err)
 		}
 	}
 
-	return c.passthroughPipe.Close()
+	return c.Pty.CloseReaders()
 }
 
 // Close closes both the TTY and afterwards all the readers
 // You may want to split this up to give the readers time to read all the data
 // until they reach the EOF error
 func (c *Console) Close() error {
-	err := c.CloseTTY()
+	err := c.Pty.CloseTTY()
 	if err != nil {
 		c.Logf("failed to close TTY: %v", err)
 	}

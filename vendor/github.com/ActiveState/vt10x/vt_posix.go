@@ -56,6 +56,13 @@ func (t *VT) init() {
 	t.dest.reset()
 }
 
+// WriteRune writes a single rune to the terminal
+func (t *VT) WriteRune(r rune) {
+	t.dest.lock()
+	defer t.dest.unlock()
+	t.dest.put(r)
+}
+
 // Write parses input and writes terminal changes to state.
 func (t *VT) Write(p []byte) (int, error) {
 	var written int

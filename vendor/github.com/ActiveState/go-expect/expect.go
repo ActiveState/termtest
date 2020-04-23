@@ -55,8 +55,8 @@ func (c *Console) Expect(opts ...ExpectOpt) (string, error) {
 		}
 	}
 
-	c.matchState.Buf = new(bytes.Buffer)
-	writer := io.MultiWriter(append(c.opts.Stdouts, c.matchState.Buf)...)
+	c.MatchState.Buf = new(bytes.Buffer)
+	writer := io.MultiWriter(append(c.opts.Stdouts, c.MatchState.Buf)...)
 	runeWriter := bufio.NewWriterSize(writer, utf8.UTFMax)
 
 	readTimeout := c.opts.ReadTimeout
@@ -70,44 +70,44 @@ func (c *Console) Expect(opts ...ExpectOpt) (string, error) {
 	defer func() {
 		for _, observer := range c.opts.ExpectObservers {
 			if matcher != nil {
-				observer([]Matcher{matcher}, c.matchState, err)
+				observer([]Matcher{matcher}, c.MatchState, err)
 				return
 			}
-			observer(options.Matchers, c.matchState, err)
+			observer(options.Matchers, c.MatchState, err)
 		}
 	}()
 
 	for {
 		if readTimeout != nil {
-			c.passthroughPipe.SetReadDeadline(time.Now().Add(*readTimeout))
+			c.Pty.SetReadDeadline(time.Now().Add(*readTimeout))
 		}
 
 		var r rune
-		r, _, err = c.runeReader.ReadRune()
+		r, _, err = c.Pty.ReadRune()
 		if err != nil {
 			matcher = options.Match(err)
 			if matcher != nil {
 				err = nil
 				break
 			}
-			return c.matchState.Buf.String(), err
+			return c.MatchState.Buf.String(), err
 		}
 
 		c.Logf("expect read: %q", string(r))
 		_, err = runeWriter.WriteRune(r)
 		if err != nil {
-			return c.matchState.Buf.String(), err
+			return c.MatchState.Buf.String(), err
 		}
 
 		// Immediately flush rune to the underlying writers.
 		err = runeWriter.Flush()
 		if err != nil {
-			return c.matchState.Buf.String(), err
+			return c.MatchState.Buf.String(), err
 		}
 
-		matcher = options.Match(c.matchState)
+		matcher = options.Match(c.MatchState)
 		if matcher != nil {
-			c.matchState.markMatch()
+			c.MatchState.markMatch()
 			break
 		}
 	}
@@ -115,12 +115,12 @@ func (c *Console) Expect(opts ...ExpectOpt) (string, error) {
 	if matcher != nil {
 		cb, ok := matcher.(CallbackMatcher)
 		if ok {
-			err = cb.Callback(c.matchState)
+			err = cb.Callback(c.MatchState)
 			if err != nil {
-				return c.matchState.Buf.String(), err
+				return c.MatchState.Buf.String(), err
 			}
 		}
 	}
 
-	return c.matchState.Buf.String(), err
+	return c.MatchState.Buf.String(), err
 }
