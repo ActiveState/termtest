@@ -41,7 +41,7 @@ func TestExpectObserveFn(t *testing.T) func([]expect.Matcher, string, string, er
 		pty = strings.TrimRight(pty, " \n") + "\n"
 
 		t.Fatalf(
-			"Could not meet expectation: Expectation: '%s'\nError: %v at\n%s\n---\nTerminal snapshot:\n%s\n---\nParsed output:\n%s\n",
+			"Could not meet expectation: Expectation: '%s'\nError: %v at\n%s\n---\nTerminal snapshot:\n%s\n---\nParsed output:\n%+q\n",
 			value, err, stacktrace.Get().String(), pty, raw,
 		)
 	}
