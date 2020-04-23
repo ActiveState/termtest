@@ -32,8 +32,11 @@ jobs:
     - name: Build
       run: go build -v .
 
+    - name: Race Test
+      run: go test -v . -race
+
     - name: Test
-      run: go test -v .
+      run: go text -v . -count 5
 
     - name: Rename artifact
       run: mv text.log text-${{ matrix.os }}.log
