@@ -243,6 +243,7 @@ func (cp *ConsoleProcess) Stop() error {
 	return cp.cmd.Process.Signal(os.Interrupt)
 }
 
+// MatchState returns the current state of the expect-matcher
 func (cp *ConsoleProcess) MatchState() *expect.MatchState {
 	return cp.console.MatchState
 }
