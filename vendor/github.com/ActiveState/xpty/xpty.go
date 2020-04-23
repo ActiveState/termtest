@@ -1,3 +1,7 @@
+// Copyright 2020 ActiveState Software. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file
+
 package xpty
 
 import (
@@ -97,13 +101,19 @@ func (p *Xpty) openVT(cols uint16, rows uint16) (err error) {
 	return nil
 }
 
+// Resize resizes the underlying pseudo-terminal
+func (p *Xpty) Resize(cols, rows uint16) error {
+	p.Term.Resize(int(cols), int(rows))
+	return p.impl.resize(cols, rows)
+}
+
 // New opens a pseudo-terminal of the given size
-func New(cols uint16, rows uint16) (*Xpty, error) {
+func New(cols uint16, rows uint16, recordHistory bool) (*Xpty, error) {
 	xpImpl, err := open(cols, rows)
 	if err != nil {
 		return nil, err
 	}
-	xp := &Xpty{impl: xpImpl, Term: nil, State: &vt10x.State{}}
+	xp := &Xpty{impl: xpImpl, Term: nil, State: &vt10x.State{RecordHistory: recordHistory}}
 	err = xp.openVT(cols, rows)
 	if err != nil {
 		return nil, err

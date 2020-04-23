@@ -47,11 +47,15 @@ func NewTestWriter(t *testing.T) (io.Writer, error) {
 		for {
 			line, _, err := br.ReadLine()
 			if err != nil {
+				if err != io.EOF {
+					t.Logf("Unexpected error reading line: %v\n", err)
+				}
 				return
 			}
 
 			_, err = tw.Write(line)
 			if err != nil {
+				t.Logf("Unexpected writing to testWriter: %v\n", err)
 				return
 			}
 		}

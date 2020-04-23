@@ -53,7 +53,6 @@ func NewPassthroughPipe(r io.Reader) *PassthroughPipe {
 	)
 	if err != nil {
 		log.Fatalf("Could not open log file: %v\n", err)
-		return nil
 	}
 	p := PassthroughPipe{
 		rdr:      r,
@@ -66,6 +65,7 @@ func NewPassthroughPipe(r io.Reader) *PassthroughPipe {
 	return &p
 }
 
+// IsBlocked returns true when the PassthroughPipe is (most likely) blocked reading ie., waiting for input
 func (p *PassthroughPipe) IsBlocked() bool {
 	lr := atomic.LoadInt64(&p.lastRead)
 	return time.Duration(time.Now().UTC().UnixNano()-lr) > 500*time.Microsecond

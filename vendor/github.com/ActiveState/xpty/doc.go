@@ -1,3 +1,7 @@
+// Copyright 2020 ActiveState Software. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file
+
 // Package xpty is an abstraction of a pseudoterminal that is attached to a
 // virtual xterm-compatible terminal.
 //

@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8
+	github.com/autarch/testify v1.2.2
 	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/gdamore/encoding v0.0.0-20151215212835-b23993cbb635 // indirect
 	github.com/gdamore/tcell v1.0.1-0.20180608172421-b3cebc399d6f

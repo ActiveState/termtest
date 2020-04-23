@@ -6,6 +6,7 @@ github.com/ActiveState/xpty v0.1.1 h1:fCiLwvj7rCWb59JDlJAEXkGlXe4C+5RrU+/376vkqq
 github.com/ActiveState/xpty v0.1.1/go.mod h1:pg8Egn3pQTYUYAVy3DuYVA5p9Gly2M57MzhqIuyn1is=
 github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8 h1:xzYJEypr/85nBpB11F9br+3HUrpgb+fcm5iADzXXYEw=
 github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8/go.mod h1:oX5x61PbNXchhh0oikYAH+4Pcfw5LKv21+Jnpr6r6Pc=
+github.com/autarch/testify v1.2.2/go.mod h1:oDbHKfFv2/D5UtVrxkk90OKcb6P4/AqF1Pcf6ZbvDQo=
 github.com/creack/pty v1.1.9 h1:uDmaGzcdjhF4i/plgjmEsriH11Y0o7RKapEf/LDaM3w=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=

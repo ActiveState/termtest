@@ -1,3 +1,7 @@
+// Copyright 2020 ActiveState Software. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file
+
 // +build darwin dragonfly linux netbsd openbsd solaris
 
 package xpty
@@ -22,7 +26,10 @@ func open(cols uint16, rows uint16) (*impl, error) {
 	if err != nil {
 		return nil, err
 	}
-	pty.Setsize(ptm, &pty.Winsize{Cols: cols, Rows: rows})
+	err = pty.Setsize(ptm, &pty.Winsize{Cols: cols, Rows: rows})
+	if err != nil {
+		return nil, err
+	}
 	return &impl{ptm: ptm, pts: pts}, nil
 }
 
@@ -32,6 +39,10 @@ func (p *impl) terminalOutPipe() io.Reader {
 
 func (p *impl) terminalInPipe() io.Writer {
 	return p.ptm
+}
+
+func (p *impl) resize(cols uint16, rows uint16) error {
+	return pty.Setsize(p.ptm, &pty.Winsize{Cols: cols, Rows: rows})
 }
 
 func (p *impl) close() error {

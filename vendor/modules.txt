@@ -4,10 +4,10 @@ github.com/ActiveState/go-conpty
 ## explicit
 github.com/ActiveState/go-expect
 github.com/ActiveState/go-expect/internal/osutils
-# github.com/ActiveState/vt10x v1.1.0
+# github.com/ActiveState/vt10x v1.1.0 => ../vt10x
 ## explicit
 github.com/ActiveState/vt10x
-# github.com/ActiveState/xpty v0.1.1
+# github.com/ActiveState/xpty v0.1.1 => ../xpty
 github.com/ActiveState/xpty
 # github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8
 github.com/Netflix/go-expect
@@ -30,3 +30,5 @@ golang.org/x/sys/windows
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
 # github.com/ActiveState/go-expect => ../go-expect
+# github.com/ActiveState/vt10x => ../vt10x
+# github.com/ActiveState/xpty => ../xpty

@@ -1,5 +1,10 @@
 # xpty
 
+<p align="center">
+  <a href="https://github.com/ActiveState/xpty/actions?query=workflow%3Aunit-tests"><img alt="GitHub Actions status" src="https://github.com/ActiveState/xpty/workflows/unit-tests/badge.svg" /></a>
+</p>
+
+
 Xpty provides an abstraction to run a terminal application in a pseudo-terminal environment for Linux, Mac and Windows. On Windows it uses the [ActiveState/go-conpty](https://github.com/ActiveState/go-conpty) to run the application inside of a [ConPTY terminal](https://devblogs.microsoft.com/commandline/windows-command-line-introducing-the-windows-pseudo-console-conpty/). The pseudo-terminal is automatically attached to a virtual terminal that is compatible with an `xterm`-terminal.
 
 ## The problem

@@ -16,6 +16,7 @@ package expect
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,6 +26,7 @@ import (
 	"time"
 
 	"github.com/ActiveState/go-expect/internal/osutils"
+	"github.com/ActiveState/vt10x"
 	"github.com/ActiveState/xpty"
 )
 
@@ -35,9 +37,21 @@ import (
 type Console struct {
 	opts            ConsoleOpts
 	Pty             *xpty.Xpty
+	matchState      *MatchState
 	passthroughPipe *PassthroughPipe
 	runeReader      *bufio.Reader
 	closers         []io.Closer
+}
+
+type MatchState struct {
+	TermState  *vt10x.State
+	Buf        *bytes.Buffer
+	LastMatchX int
+	LastMatchY int
+}
+
+func (ms *MatchState) markMatch() {
+	ms.LastMatchX, ms.LastMatchY = ms.TermState.GlobalCursor()
 }
 
 // ConsoleOpt allows setting Console options.
@@ -52,7 +66,6 @@ type ConsoleOpts struct {
 	ExpectObservers []ExpectObserver
 	SendObservers   []SendObserver
 	ReadTimeout     *time.Duration
-	ReadBufMutation func([]byte) ([]byte, error)
 }
 
 // ExpectObserver provides an interface for a function callback that will
@@ -61,7 +74,7 @@ type ConsoleOpts struct {
 //   or a list of matchers that matched `buf` when err is nil.
 // buf is the captured output that was matched against.
 // err is error that might have occurred. May be nil.
-type ExpectObserver func(matchers []Matcher, buf string, err error)
+type ExpectObserver func(matchers []Matcher, ms *MatchState, err error)
 
 // SendObserver provides an interface for a function callback that will
 // be called after each Send operation.
@@ -134,20 +147,10 @@ func WithDefaultTimeout(timeout time.Duration) ConsoleOpt {
 	}
 }
 
-// WithReadBufferMutation sets a transformation function to prepare console
-// reads.
-func WithReadBufferMutation(fn func([]byte) ([]byte, error)) ConsoleOpt {
-	return func(opts *ConsoleOpts) error {
-		opts.ReadBufMutation = fn
-		return nil
-	}
-}
-
 // NewConsole returns a new Console with the given options.
 func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	options := ConsoleOpts{
-		Logger:          log.New(ioutil.Discard, "", 0),
-		ReadBufMutation: func(bs []byte) ([]byte, error) { return bs, nil },
+		Logger: log.New(ioutil.Discard, "", 0),
 	}
 
 	for _, opt := range opts {
@@ -162,7 +165,7 @@ func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	if runtime.GOOS == "windows" {
 		rows = 31
 	}
-	pty, err := xpty.New(80, rows)
+	pty, err := xpty.New(80, rows, true)
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +174,9 @@ func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	c := &Console{
 		opts: options,
 		Pty:  pty,
+		matchState: &MatchState{
+			TermState: pty.State,
+		},
 	}
 	passthroughPipe := NewPassthroughPipe(c)
 
@@ -206,28 +212,21 @@ func (c *Console) Tty() *os.File {
 	return c.Pty.Tty()
 }
 
-// Drain reads from the input stream until it catches up with the incoming stream off data.
-// This function can unblock the writer, if no further reads from the passthrough pipe are
-// needed
+// WaitTillDrained waits the PassthroughPipe is blocked in the reading state.
+// When this function returns, the PassthroughPipe should be blocked in the
+// reading state waiting for more input.
 func (c *Console) WaitTillDrained() {
 	for {
 		if c.passthroughPipe.IsBlocked() {
 			return
 		}
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(200 * time.Microsecond)
 	}
 }
 
 // Read reads bytes b from Console's tty.
 func (c *Console) Read(b []byte) (int, error) {
-	n, err := c.Pty.TerminalOutPipe().Read(b)
-	if err != nil {
-		return n, err
-	}
-
-	bs, err := c.opts.ReadBufMutation(b[:n])
-	copy(b[0:len(bs)], bs)
-	return len(bs), err
+	return c.Pty.TerminalOutPipe().Read(b)
 }
 
 // Write writes bytes b to Console's tty.

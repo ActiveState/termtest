@@ -9,3 +9,5 @@ require (
 )
 
 replace github.com/ActiveState/go-expect => ../go-expect
+replace github.com/ActiveState/vt10x => ../vt10x
+replace github.com/ActiveState/xpty => ../xpty
