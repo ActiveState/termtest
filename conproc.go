@@ -115,7 +115,6 @@ func New(opts Options) (*ConsoleProcess, error) {
 
 		// wait till passthrough-pipe has caught up
 		cp.console.Pty.WaitTillDrained()
-		time.Sleep(200 * time.Millisecond)
 		_ = console.Pty.CloseTTY()
 	}()
 
