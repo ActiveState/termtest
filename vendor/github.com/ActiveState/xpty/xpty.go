@@ -149,7 +149,7 @@ func (p *Xpty) WaitTillDrained() {
 		if p.pp.IsBlocked() {
 			return
 		}
-		time.Sleep(200 * time.Microsecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
