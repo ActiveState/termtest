@@ -107,6 +107,8 @@ func (c *Console) Expect(opts ...ExpectOpt) (string, error) {
 
 		matcher = options.Match(c.MatchState)
 		if matcher != nil {
+			cx, cy := c.MatchState.TermState.GlobalCursor()
+			fmt.Printf("gs @ match: %d %d\n", cx cy)
 			c.MatchState.markMatch()
 			break
 		}
