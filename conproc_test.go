@@ -110,7 +110,6 @@ func (suite *TermTestTestSuite) TestTermTest() {
 			defer cp.Close()
 			_, _ = cp.Expect("an expected string", 10*time.Second)
 			_, _ = cp.ExpectExitCode(c.exitCode, 20*time.Second)
-			fmt.Println(cp.MatchState().TermState.StringToCursorFrom(0, 0))
 			suite.Suite.Equal(c.withHistory, strings.TrimSpace(spaceRe.ReplaceAllString(cp.MatchState().UnwrappedStringToCursorFromMatch(0), "\n")), "raw buffer")
 			suite.Suite.Equal(c.terminalOutput, spaceRe.ReplaceAllString(cp.TrimmedSnapshot(), " "), "terminal snapshot")
 		})
