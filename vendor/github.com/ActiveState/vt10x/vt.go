@@ -1,12 +1,9 @@
-// +build plan9 nacl windows
-
 package vt10x
 
 import (
 	"bufio"
 	"bytes"
 	"io"
-	"os"
 	"unicode"
 	"unicode/utf8"
 )
@@ -18,7 +15,6 @@ type VT struct {
 	out  io.Writer
 	rwc  io.ReadWriteCloser
 	br   *bufio.Reader
-	pty  *os.File
 }
 
 // Create initializes a virtual terminal emulator with the target state
@@ -32,8 +28,6 @@ func Create(state *State, rwc io.ReadWriteCloser) (*VT, error) {
 	return t, nil
 }
 
-// Create initializes a virtual terminal emulator with the target state
-// and io.ReadWriteCloser input.
 func New(state *State, in io.Reader, out io.Writer) (*VT, error) {
 	t := &VT{
 		dest: state,
@@ -103,7 +97,7 @@ func (t *VT) Close() error {
 	return t.rwc.Close()
 }
 
-// Parse blocks on read on io.ReadWriteCloser, then parses sequences until
+// Parse blocks on read on pty or io.ReadCloser, then parses sequences until
 // buffer empties. State is locked as soon as first rune is read, and unlocked
 // when buffer is empty.
 // TODO: add tests for expected blocking behavior

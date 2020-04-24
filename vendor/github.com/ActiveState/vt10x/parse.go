@@ -185,7 +185,11 @@ func (t *State) handleControlCodes(c rune) (bool, bool) {
 		isPrintable = true
 	// BS
 	case '\b':
-		t.moveTo(t.cur.x-1, t.cur.y)
+		if t.cur.x == t.cols-1 && t.Mode(ModeWrap) && t.cur.state&cursorWrapNext != 0 {
+			t.cur.state &^= cursorWrapNext
+		} else {
+			t.moveTo(t.cur.x-1, t.cur.y)
+		}
 	// CR
 	case '\r':
 		t.moveTo(0, t.cur.y)

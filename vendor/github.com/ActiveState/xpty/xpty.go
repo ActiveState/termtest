@@ -141,18 +141,6 @@ func (p *Xpty) SetReadDeadline(d time.Time) {
 	p.pp.SetReadDeadline(d)
 }
 
-// WaitTillDrained waits until the PassthroughPipe is blocked in the reading state.
-// When this function returns, the PassthroughPipe should be blocked in the
-// reading state waiting for more input.
-func (p *Xpty) WaitTillDrained() {
-	for {
-		if p.pp.IsBlocked() {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-}
-
 // TerminalInPipe returns a writer that can be used to write user input to the pseudo terminal.
 // On unix this is the /dev/ptm file
 func (p *Xpty) TerminalInPipe() io.Writer {
@@ -176,10 +164,38 @@ func (p *Xpty) WriteTo(w io.Writer) (int64, error) {
 
 }
 
+// WaitTillDrained waits until the PassthroughPipe is blocked in the reading state.
+// When this function returns, the PassthroughPipe should be blocked in the
+// reading state waiting for more input.
+func (p *Xpty) WaitTillDrained() {
+	for {
+		if p.pp.IsBlocked() {
+			return
+		}
+		time.Sleep(200 * time.Microsecond)
+	}
+}
+
+// CloseTTY closes just the terminal, giving you some time to finish reading from the
+// pass-through pipe later.
+// Call CloseReaders() when you are done reading all the data that is still buffered
+// Consider this little dance to avoid losing any data:
+//     go func() {
+//          ...
+//     		// command finishes
+//          cmd.Wait()
+//          // wait until the pass-through pipe has consumed all data
+//          xp.WaitTillDrained()
+//          xp.CloseTTY()
+//     }()
+//     xp.WriteTo(...)
+//     // now close the passthrough pipe
+//     xp.CloseReaders()
 func (p *Xpty) CloseTTY() error {
 	return p.impl.close()
 }
 
+// CloseReaders closes the passthrough pipe
 func (p *Xpty) CloseReaders() error {
 	err := p.pp.Close()
 	if err != nil {

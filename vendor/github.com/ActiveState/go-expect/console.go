@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/ActiveState/go-expect/internal/osutils"
@@ -44,12 +45,17 @@ type coord struct {
 	y int
 }
 
+// MatchState describes the state of the terminal while trying to match it against an expectation
 type MatchState struct {
-	TermState  *vt10x.State
+	// TermState is the current terminal state
+	TermState *vt10x.State
+	// Buf is a buffer of the raw characters parsed since the last match
 	Buf        *bytes.Buffer
 	prevCoords []coord
 }
 
+// UnwrappedStringToCursorFromMatch returns the parsed string from the position of the n-last match to the cursor position
+// Terminal EOL-wrapping is removed
 func (ms *MatchState) UnwrappedStringToCursorFromMatch(n int) string {
 	var c coord
 	numCoords := len(ms.prevCoords)
@@ -93,7 +99,7 @@ type ExpectObserver func(matchers []Matcher, ms *MatchState, err error)
 // be called after each Send operation.
 // msg is the string that was sent.
 // num is the number of bytes actually sent.
-// err is the error that might have occured.  May be nil.
+// err is the error that might have occurred.  May be nil.
 type SendObserver func(msg string, num int, err error)
 
 // WithStdout adds writers that Console duplicates writes to, similar to the
@@ -173,7 +179,12 @@ func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	}
 
 	var pty *xpty.Xpty
-	pty, err := xpty.New(80, 30, true)
+	// On Windows we are adding an extra row, because the last row appears to be empty usually
+	rows := uint16(30)
+	if runtime.GOOS == "windows" {
+		rows = 31
+	}
+	pty, err := xpty.New(80, rows, true)
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +229,8 @@ func (c *Console) Fd() uintptr {
 	return c.Pty.TerminalOutFd()
 }
 
+// CloseReaders closes everything that is trying to read from the terminal
+// Call this function once you are sure that you have consumed all bytes
 func (c *Console) CloseReaders() (err error) {
 	for _, fd := range c.closers {
 		err = fd.Close()

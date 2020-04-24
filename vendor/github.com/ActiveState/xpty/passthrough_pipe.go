@@ -61,7 +61,7 @@ func NewPassthroughPipe(r *bufio.Reader) *PassthroughPipe {
 // IsBlocked returns true when the PassthroughPipe is (most likely) blocked reading ie., waiting for input
 func (p *PassthroughPipe) IsBlocked() bool {
 	lr := atomic.LoadInt64(&p.lastRead)
-	return time.Duration(time.Now().UTC().UnixNano()-lr) > 100*time.Millisecond
+	return time.Duration(time.Now().UTC().UnixNano()-lr) > 500*time.Microsecond
 }
 
 // SetReadDeadline sets a deadline for a successful read

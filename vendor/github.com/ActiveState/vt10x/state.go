@@ -809,8 +809,8 @@ func (t *State) HasStringBeforeCursor(m string) bool {
 		}
 	}
 
-	return true
-
+	// ensure that we matched all the characters that we were looking for
+	return i == -1
 }
 
 func (t *State) string(unwrap bool, toCursor bool, fromRow int, fromCol int) string {
