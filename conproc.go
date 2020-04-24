@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"testing"
 	"time"
 
 	expect "github.com/ActiveState/go-expect"
@@ -46,6 +47,13 @@ type ConsoleProcess struct {
 	cmdName string
 	ctx     context.Context
 	cancel  func()
+}
+
+// NewTest bonds a command process with a console pty and sets it up for testing
+func NewTest(t *testing.T, opts Options) (*ConsoleProcess, error) {
+	opts.ObserveExpect = TestExpectObserveFn(t)
+	opts.ObserveSend = TestSendObserveFn(t)
+	return New(opts)
 }
 
 // New bonds a command process with a console pty.
