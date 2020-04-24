@@ -37,15 +37,3 @@ jobs:
 
     - name: Test
       run: go test -v . -count 5
-
-    - name: Rename artifact
-      run: mv text.log text-${{ matrix.os }}.log
-      if: always()
-
-    - name: Upload text.log
-      uses: actions/upload-artifact@v1
-      with:
-        name: raw-log
-        path: text-${{ matrix.os }}.log
-      if: always()
-

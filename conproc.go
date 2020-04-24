@@ -19,8 +19,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ActiveState/vt10x"
-
 	expect "github.com/ActiveState/go-expect"
 	"github.com/ActiveState/termtest/internal/osutils"
 )
@@ -44,7 +42,6 @@ type ConsoleProcess struct {
 	opts    Options
 	errs    chan error
 	console *expect.Console
-	vtstrip *vt10x.VTStrip
 	cmd     *exec.Cmd
 	cmdName string
 	ctx     context.Context
@@ -67,11 +64,8 @@ func New(opts Options) (*ConsoleProcess, error) {
 	cmd.SysProcAttr = osutils.SysProcAttrForNewProcessGroup()
 	fmt.Printf("Spawning '%s' from %s\n", osutils.CmdString(cmd), opts.WorkDirectory)
 
-	vtstrip := vt10x.NewStrip()
-
 	console, err := expect.NewConsole(
 		expect.WithDefaultTimeout(opts.DefaultTimeout),
-		// expect.WithReadBufferMutation(vtstrip.Strip),
 		expect.WithSendObserver(expect.SendObserver(opts.ObserveSend)),
 		expect.WithExpectObserver(opts.ObserveExpect),
 	)
@@ -90,7 +84,6 @@ func New(opts Options) (*ConsoleProcess, error) {
 		opts:    opts,
 		errs:    make(chan error),
 		console: console,
-		vtstrip: vtstrip,
 		cmd:     cmd,
 		cmdName: opts.CmdName,
 		ctx:     ctx,

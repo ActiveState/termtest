@@ -94,13 +94,11 @@ func (suite *TermTestTestSuite) TestTermTest() {
 		exitCode       int
 		terminalOutput string
 		withHistory    string
-		// Two tests currently fail on Windows (fillBuffer and stuttering). This needs to be fixed.
-		skipOnWindows bool
 	}{
-		{"expect a string", []string{}, 0, "an expected string", "", false},
-		{"exit 1", []string{"-exit1"}, 1, "an expected string", "", false},
-		{"with filled buffer", []string{"-fill-buffer"}, 0, fillbufferOutput, fillRawOutput, true},
-		{"stuttering", []string{"-stutter"}, 0, strings.Join(stexpTerm, " "), strings.Join(stexp, "\n"), true},
+		{"expect a string", []string{}, 0, "an expected string", ""},
+		{"exit 1", []string{"-exit1"}, 1, "an expected string", ""},
+		{"with filled buffer", []string{"-fill-buffer"}, 0, fillbufferOutput, fillRawOutput},
+		{"stuttering", []string{"-stutter"}, 0, strings.Join(stexpTerm, " "), strings.Join(stexp, "\n")},
 	}
 
 	for _, c := range cases {
@@ -200,7 +198,6 @@ func (suite *TermTestTestSuite) TestTimeout() {
 	suite.True(errorFound, "expect to observe an error")
 }
 
-/*
 func (suite *TermTestTestSuite) TestInterrupt() {
 	// create a new test-session
 	cp := suite.spawn(false, "-sleep", "-exit1")
@@ -210,7 +207,6 @@ func (suite *TermTestTestSuite) TestInterrupt() {
 	cp.SendCtrlC()
 	cp.ExpectExitCode(123, 10*time.Second)
 }
-*/
 
 func TestTermTestTestSuite(t *testing.T) {
 	suite.Run(t, new(TermTestTestSuite))
