@@ -18,10 +18,7 @@ package expect
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"log"
-	"os"
 	"sync/atomic"
 	"time"
 )
@@ -41,25 +38,17 @@ type PassthroughPipe struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	lastRead int64
-	logFile  *os.File
 }
 
 // NewPassthroughPipe returns a new pipe for a io.Reader that passes through
 // non-timeout errors.
 func NewPassthroughPipe(r io.Reader) *PassthroughPipe {
 	ctx, cancel := context.WithCancel(context.Background())
-	f, err := os.OpenFile("text.log",
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644,
-	)
-	if err != nil {
-		log.Fatalf("Could not open log file: %v\n", err)
-	}
 	p := PassthroughPipe{
 		rdr:      r,
 		deadline: time.Now(),
 		ctx:      ctx,
 		cancel:   cancel,
-		logFile:  f,
 	}
 
 	return &p
@@ -78,7 +67,6 @@ func (p *PassthroughPipe) SetReadDeadline(d time.Time) {
 
 // Close releases all resources allocated by the pipe
 func (p *PassthroughPipe) Close() error {
-	p.logFile.Close()
 	p.cancel()
 	return nil
 }
@@ -104,11 +92,6 @@ func (p *PassthroughPipe) Read(buf []byte) (n int, err error) {
 		}
 
 		n, err := p.rdr.Read(buf)
-
-		m, werr := p.logFile.Write(buf[:n])
-		if werr != nil {
-			fmt.Printf("failed to write %d bytes to log file: %v\n", m, werr)
-		}
 
 		select {
 		case <-done:
