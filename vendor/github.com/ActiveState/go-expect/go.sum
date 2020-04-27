@@ -1,5 +1,9 @@
 github.com/ActiveState/go-conpty v0.1.1 h1:Bc2Nwn667t5RueuBGEvEHM8ZoEyTbfOw7LhEKdm1iHI=
 github.com/ActiveState/go-conpty v0.1.1/go.mod h1:L7reVBZYmffFShrztTQzymBRp7pSkLIEkjLvv7/Wqng=
+github.com/ActiveState/go-conpty v0.2.1 h1:+akcPLAovu/yErT94c67W9/sldvOCk8SVyrztgDSEuA=
+github.com/ActiveState/go-conpty v0.2.1/go.mod h1:ju8+TDvkEjrFhDKg5FnMg7odjlYCcl6X8Sq3ZEqMbZ8=
+github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 h1:w+iIsaOQNcT7OZ575w+acHgRric5iCyQh+xv+KJ4HB8=
+github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78/go.mod h1:LmzpDX56iTiv29bbRTIsUNlaFfuhWRQBWjQdVyAevI8=
 github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8 h1:xzYJEypr/85nBpB11F9br+3HUrpgb+fcm5iADzXXYEw=
 github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8/go.mod h1:oX5x61PbNXchhh0oikYAH+4Pcfw5LKv21+Jnpr6r6Pc=
 github.com/autarch/testify v1.2.2 h1:9Q9V6zqhP7R6dv+zRUddv6kXKLo6ecQhnFRFWM71i1c=

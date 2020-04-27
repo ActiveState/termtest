@@ -11,8 +11,11 @@ Xpty provides an abstraction to run a terminal application in a pseudo-terminal 
 
 Attaching the pseudo-terminal to an `xterm`-compatible virtual terminal is for the following reason:
 
-If the terminal application sends  a cursor position request (CPR) signal, the application usually blocks on read until it
-receives the response (the column and row number of the cursor) from terminal. `xpty` helps unblocking such programmes, as it actually generates the awaited response.
+If the terminal application sends  a cursor position request (CPR) signal, the application usually blocks on read until it receives the response (the column and row number of the cursor) from terminal. `xpty` helps unblocking such programmes, as it actually generates the awaited response.
+
+## Rune-by-rune streaming
+
+Reading from the underlying terminal is done with the `ReadRune()` function that returns the next interpretable rune. Such fine-grained and slow output processing allows us to keep the state of the virtual terminal deterministic.
 
 ## Example
 
@@ -26,9 +29,9 @@ xp.StartProcessInTerminal(cmd)
 xp.TerminalInPipe().WriteString("echo hello world\n")
 xp.TerminalInPipe().WriteString("exit\n")
 
-buf := make([]byte, 1000)
-n, _ := xp.TerminalOutPipe().Read(buf)
+buf := new(bytes.Buffer)
+n, _ := xp.WriteTo(buf)
 
-fmt.Printf("Raw output:\n%s\n", string(buf[:n]))
+fmt.Printf("Raw output:\n%s\n", buf.String())
 fmt.Printf("Terminal output:\n%s\n", xp.State.String())
 ```

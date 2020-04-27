@@ -98,7 +98,8 @@ func (p *Xpty) openVT(cols uint16, rows uint16) (err error) {
 		io.Copy(p.impl.terminalInPipe(), p.rwPipe)
 	}()
 
-	// duplicate the terminal output pipe: write to vt terminal everything that is being read from it.
+	// forward the terminal output to a passthrough pipe, such that we can read it rune-by-rune
+	// and can control read timeouts
 	br := bufio.NewReaderSize(p.impl.terminalOutPipe(), 100)
 	p.pp = NewPassthroughPipe(br)
 	return nil
