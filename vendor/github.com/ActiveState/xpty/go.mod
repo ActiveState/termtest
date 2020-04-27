@@ -3,7 +3,7 @@ module github.com/ActiveState/xpty
 go 1.13
 
 require (
-	github.com/ActiveState/go-conpty v0.2.1
+	github.com/ActiveState/go-conpty v0.3.0
 	github.com/ActiveState/vt10x v1.2.0
 	github.com/creack/pty v1.1.9
 	github.com/stretchr/testify v1.2.1

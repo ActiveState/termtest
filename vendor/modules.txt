@@ -1,13 +1,13 @@
-# github.com/ActiveState/go-conpty v0.2.1
+# github.com/ActiveState/go-conpty v0.3.0
 github.com/ActiveState/go-conpty
-# github.com/ActiveState/go-expect v0.0.0-20200417191304-164057b5e878 => ../go-expect
+# github.com/ActiveState/go-expect v0.2.0
 ## explicit
 github.com/ActiveState/go-expect
 github.com/ActiveState/go-expect/internal/osutils
-# github.com/ActiveState/vt10x v1.2.0 => ../vt10x
+# github.com/ActiveState/vt10x v1.2.0
 ## explicit
 github.com/ActiveState/vt10x
-# github.com/ActiveState/xpty v0.1.1 => ../xpty
+# github.com/ActiveState/xpty v0.2.0
 github.com/ActiveState/xpty
 # github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
 github.com/Azure/go-ansiterm
@@ -32,6 +32,3 @@ golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
-# github.com/ActiveState/go-expect => ../go-expect
-# github.com/ActiveState/vt10x => ../vt10x
-# github.com/ActiveState/xpty => ../xpty

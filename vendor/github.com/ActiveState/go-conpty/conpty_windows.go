@@ -165,7 +165,7 @@ func (c *ConPty) Spawn(argv0 string, argv []string, attr *syscall.ProcAttr) (pid
 		tSec, // thread handles not inheritable,
 		false,
 		flags,
-		createEnvBlock(attr.Env),
+		createEnvBlock(addCriticalEnv(dedupEnvCase(true, attr.Env))),
 		dirp, // use current directory later: dirp,
 		&c.startupInfo.startupInfo,
 		pi)
