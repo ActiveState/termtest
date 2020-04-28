@@ -1,3 +1,7 @@
+// Copyright 2020 ActiveState Software. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file
+
 // +build windows
 
 package xpty
@@ -42,6 +46,10 @@ func (p *impl) tty() *os.File {
 
 func (p *impl) terminalOutFd() uintptr {
 	return p.OutFd()
+}
+
+func (p *impl) resize(cols, rows uint16) error {
+	return p.ConPty.Resize(cols, rows)
 }
 
 func (p *impl) startProcessInTerminal(c *exec.Cmd) (err error) {

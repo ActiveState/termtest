@@ -5,7 +5,6 @@
 package termtest_test
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -13,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +27,7 @@ type TermTestTestSuite struct {
 	tmpDir        string
 }
 
-func (suite *TermTestTestSuite) spawnCustom(retainWorkDir bool, observer termtest.ExpectObserver, args ...string) *termtest.ConsoleProcess {
+func (suite *TermTestTestSuite) spawnCustom(retainWorkDir bool, observer expect.ExpectObserver, args ...string) *termtest.ConsoleProcess {
 	opts := termtest.Options{
 		RetainWorkDir: retainWorkDir,
 		ObserveSend:   termtest.TestSendObserveFn(suite.Suite.T()),
@@ -68,9 +66,19 @@ func (suite *TermTestTestSuite) TearDownSuite() {
 }
 
 func (suite *TermTestTestSuite) TestTermTest() {
+	buf := make([]byte, 300*80)
+	k := 0
+	for i := 0; i < 300; i++ {
+		copy(buf[k:k+5], []byte(fmt.Sprintf(":%03d:", i)))
+		k += 5
+		for j := 5; j < 80; j++ {
+			buf[k] = byte(fmt.Sprintf("%d", j%10)[0])
+			k++
+		}
+	}
 	// terminal size is 80*30 (one newline at end of stream)
-	fillbufferOutput := string(bytes.Repeat([]byte("a"), 80*29))
-	fillRawOutput := string(bytes.Repeat([]byte("a"), 1e4))
+	fillbufferOutput := string(buf[len(buf)-80*29:])
+	fillRawOutput := string(buf)
 	// match at least two consecutive space character
 	spaceRe := regexp.MustCompile("  +")
 	stexp := make([]string, 0, 20)
@@ -85,14 +93,12 @@ func (suite *TermTestTestSuite) TestTermTest() {
 		args           []string
 		exitCode       int
 		terminalOutput string
-		rawOutput      string
-		// Two tests currently fail on Windows (fillBuffer and stuttering). This needs to be fixed.
-		skipOnWindows bool
+		withHistory    string
 	}{
-		{"expect a string", []string{}, 0, "an expected string", "", false},
-		{"exit 1", []string{"-exit1"}, 1, "an expected string", "", false},
-		{"with filled buffer", []string{"-fill-buffer"}, 0, fillbufferOutput, fillRawOutput, true},
-		{"stuttering", []string{"-stutter"}, 0, strings.Join(stexpTerm, " "), strings.Join(stexp, "\n"), true},
+		{"expect a string", []string{}, 0, "an expected string", ""},
+		{"exit 1", []string{"-exit1"}, 1, "an expected string", ""},
+		{"with filled buffer", []string{"-fill-buffer"}, 0, fillbufferOutput, fillRawOutput},
+		{"stuttering", []string{"-stutter"}, 0, strings.Join(stexpTerm, " "), strings.Join(stexp, "\n")},
 	}
 
 	for _, c := range cases {
@@ -101,12 +107,8 @@ func (suite *TermTestTestSuite) TestTermTest() {
 			cp := suite.spawn(false, c.args...)
 			defer cp.Close()
 			_, _ = cp.Expect("an expected string", 10*time.Second)
-			buf, _ := cp.ExpectExitCode(c.exitCode, 20*time.Second)
-			if runtime.GOOS == "windows" && c.skipOnWindows && os.Getenv("CI") != "" {
-				suite.Suite.T().Log("Skipping checks on Windows CI. Needs fix!")
-				return
-			}
-			suite.Suite.Equal(c.rawOutput, strings.TrimSpace(buf), "raw buffer")
+			_, _ = cp.ExpectExitCode(c.exitCode, 20*time.Second)
+			suite.Suite.Equal(c.withHistory, strings.TrimSpace(spaceRe.ReplaceAllString(cp.MatchState().UnwrappedStringToCursorFromMatch(0), "\n")), "raw buffer")
 			suite.Suite.Equal(c.terminalOutput, spaceRe.ReplaceAllString(cp.TrimmedSnapshot(), " "), "terminal snapshot")
 		})
 	}
@@ -127,7 +129,7 @@ func (suite *TermTestTestSuite) TestExitCode() {
 			errorFound := false
 			cp := suite.spawnCustom(
 				false,
-				func(matchers []expect.Matcher, raw, pty string, err error) {
+				func(matchers []expect.Matcher, ms *expect.MatchState, err error) {
 					if err != nil {
 						suite.Len(matchers, 1, "one matcher failed")
 						suite.Equal(fmt.Sprintf("exit code == %d", c.ExitCode), matchers[0].Criteria())
@@ -159,7 +161,7 @@ func (suite *TermTestTestSuite) TestNotExitCode() {
 			errorFound := false
 			cp := suite.spawnCustom(
 				false,
-				func(matchers []expect.Matcher, raw, pty string, err error) {
+				func(matchers []expect.Matcher, ms *expect.MatchState, err error) {
 					if err != nil {
 						suite.Len(matchers, 1, "one matcher failed")
 						suite.Equal(fmt.Sprintf("exit code != %d", c.ExitCode), matchers[0].Criteria())
@@ -180,7 +182,7 @@ func (suite *TermTestTestSuite) TestTimeout() {
 	var errorFound bool
 	cp := suite.spawnCustom(
 		false,
-		func(matchers []expect.Matcher, raw, pty string, err error) {
+		func(matchers []expect.Matcher, ms *expect.MatchState, err error) {
 			if err != nil && errors.Is(err, termtest.ErrWaitTimeout) {
 				suite.Len(matchers, 1, "one matcher failed")
 				suite.Equal("exit code == 0", matchers[0].Criteria())
@@ -205,6 +207,7 @@ func (suite *TermTestTestSuite) TestInterrupt() {
 	cp.SendCtrlC()
 	cp.ExpectExitCode(123, 10*time.Second)
 }
+
 func TestTermTestTestSuite(t *testing.T) {
 	suite.Run(t, new(TermTestTestSuite))
 }

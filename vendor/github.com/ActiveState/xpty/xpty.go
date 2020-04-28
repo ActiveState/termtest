@@ -1,21 +1,27 @@
+// Copyright 2020 ActiveState Software. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file
+
 package xpty
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/ActiveState/vt10x"
 )
 
 // Xpty reprents an abstract peudo-terminal for the Windows or *nix architecture
 type Xpty struct {
-	*impl       // os specific
-	Term        *vt10x.VT
-	State       *vt10x.State
-	rwPipe      *readWritePipe
-	termOutPipe io.Reader
+	*impl  // os specific
+	Term   *vt10x.VT
+	State  *vt10x.State
+	rwPipe *readWritePipe
+	pp     *PassthroughPipe
 }
 
 // readWritePipe is a helper that we use to let the application communicate with a virtual terminal.
@@ -92,18 +98,26 @@ func (p *Xpty) openVT(cols uint16, rows uint16) (err error) {
 		io.Copy(p.impl.terminalInPipe(), p.rwPipe)
 	}()
 
-	// duplicate the terminal output pipe: write to vt terminal everything that is being read from it.
-	p.termOutPipe = io.TeeReader(p.impl.terminalOutPipe(), p.Term)
+	// forward the terminal output to a passthrough pipe, such that we can read it rune-by-rune
+	// and can control read timeouts
+	br := bufio.NewReaderSize(p.impl.terminalOutPipe(), 100)
+	p.pp = NewPassthroughPipe(br)
 	return nil
 }
 
+// Resize resizes the underlying pseudo-terminal
+func (p *Xpty) Resize(cols, rows uint16) error {
+	p.Term.Resize(int(cols), int(rows))
+	return p.impl.resize(cols, rows)
+}
+
 // New opens a pseudo-terminal of the given size
-func New(cols uint16, rows uint16) (*Xpty, error) {
+func New(cols uint16, rows uint16, recordHistory bool) (*Xpty, error) {
 	xpImpl, err := open(cols, rows)
 	if err != nil {
 		return nil, err
 	}
-	xp := &Xpty{impl: xpImpl, Term: nil, State: &vt10x.State{}}
+	xp := &Xpty{impl: xpImpl, Term: nil, State: &vt10x.State{RecordHistory: recordHistory}}
 	err = xp.openVT(cols, rows)
 	if err != nil {
 		return nil, err
@@ -112,10 +126,20 @@ func New(cols uint16, rows uint16) (*Xpty, error) {
 	return xp, nil
 }
 
-// TerminalOutPipe returns a reader with data that is written by an application to the pseudo terminal
-// On unix this is the /dev/ptm file
-func (p *Xpty) TerminalOutPipe() io.Reader {
-	return p.termOutPipe
+// ReadRune reads a single rune from the terminal output pipe, and updates the terminal
+func (p *Xpty) ReadRune() (rune, int, error) {
+	c, sz, err := p.pp.ReadRune()
+	if err != nil {
+		return c, 0, err
+	}
+	// update the terminal
+	p.Term.WriteRune(c)
+	return c, sz, err
+}
+
+// SetReadDeadline sets a deadline for a successful read the next rune
+func (p *Xpty) SetReadDeadline(d time.Time) {
+	p.pp.SetReadDeadline(d)
 }
 
 // TerminalInPipe returns a writer that can be used to write user input to the pseudo terminal.
@@ -124,9 +148,57 @@ func (p *Xpty) TerminalInPipe() io.Writer {
 	return p.impl.terminalInPipe()
 }
 
-// Close closes the abstracted pseudo-terminal
-func (p *Xpty) Close() error {
-	err := p.impl.close()
+// WriteTo writes the terminal output stream to a writer w
+func (p *Xpty) WriteTo(w io.Writer) (int64, error) {
+	var written int64
+	for {
+		c, sz, err := p.ReadRune()
+		if err != nil {
+			return written, err
+		}
+		written += int64(sz)
+		_, err = w.Write([]byte(string(c)))
+		if err != nil {
+			return written, fmt.Errorf("failed writing to writer: %w", err)
+		}
+	}
+
+}
+
+// WaitTillDrained waits until the PassthroughPipe is blocked in the reading state.
+// When this function returns, the PassthroughPipe should be blocked in the
+// reading state waiting for more input.
+func (p *Xpty) WaitTillDrained() {
+	for {
+		if p.pp.IsBlocked() {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// CloseTTY closes just the terminal, giving you some time to finish reading from the
+// pass-through pipe later.
+// Call CloseReaders() when you are done reading all the data that is still buffered
+// Consider this little dance to avoid losing any data:
+//     go func() {
+//          ...
+//     		// command finishes
+//          cmd.Wait()
+//          // wait until the pass-through pipe has consumed all data
+//          xp.WaitTillDrained()
+//          xp.CloseTTY()
+//     }()
+//     xp.WriteTo(...)
+//     // now close the passthrough pipe
+//     xp.CloseReaders()
+func (p *Xpty) CloseTTY() error {
+	return p.impl.close()
+}
+
+// CloseReaders closes the passthrough pipe
+func (p *Xpty) CloseReaders() error {
+	err := p.pp.Close()
 	if err != nil {
 		return err
 	}
@@ -134,6 +206,15 @@ func (p *Xpty) Close() error {
 		return nil
 	}
 	return p.Term.Close()
+}
+
+// Close closes the abstracted pseudo-terminal
+func (p *Xpty) Close() error {
+	err := p.CloseTTY()
+	if err != nil {
+		return err
+	}
+	return p.CloseReaders()
 }
 
 // Tty returns the pseudo terminal files that an application can read from or write to

@@ -55,8 +55,8 @@ func (c *Console) Expect(opts ...ExpectOpt) (string, error) {
 		}
 	}
 
-	buf := new(bytes.Buffer)
-	writer := io.MultiWriter(append(c.opts.Stdouts, buf)...)
+	c.MatchState.Buf = new(bytes.Buffer)
+	writer := io.MultiWriter(append(c.opts.Stdouts, c.MatchState.Buf)...)
 	runeWriter := bufio.NewWriterSize(writer, utf8.UTFMax)
 
 	readTimeout := c.opts.ReadTimeout
@@ -70,43 +70,44 @@ func (c *Console) Expect(opts ...ExpectOpt) (string, error) {
 	defer func() {
 		for _, observer := range c.opts.ExpectObservers {
 			if matcher != nil {
-				observer([]Matcher{matcher}, buf.String(), err)
+				observer([]Matcher{matcher}, c.MatchState, err)
 				return
 			}
-			observer(options.Matchers, buf.String(), err)
+			observer(options.Matchers, c.MatchState, err)
 		}
 	}()
 
 	for {
 		if readTimeout != nil {
-			c.passthroughPipe.SetReadDeadline(time.Now().Add(*readTimeout))
+			c.Pty.SetReadDeadline(time.Now().Add(*readTimeout))
 		}
 
 		var r rune
-		r, _, err = c.runeReader.ReadRune()
+		r, _, err = c.Pty.ReadRune()
 		if err != nil {
 			matcher = options.Match(err)
 			if matcher != nil {
 				err = nil
 				break
 			}
-			return buf.String(), err
+			return c.MatchState.Buf.String(), err
 		}
 
 		c.Logf("expect read: %q", string(r))
 		_, err = runeWriter.WriteRune(r)
 		if err != nil {
-			return buf.String(), err
+			return c.MatchState.Buf.String(), err
 		}
 
 		// Immediately flush rune to the underlying writers.
 		err = runeWriter.Flush()
 		if err != nil {
-			return buf.String(), err
+			return c.MatchState.Buf.String(), err
 		}
 
-		matcher = options.Match(buf)
+		matcher = options.Match(c.MatchState)
 		if matcher != nil {
+			c.MatchState.markMatch()
 			break
 		}
 	}
@@ -114,12 +115,12 @@ func (c *Console) Expect(opts ...ExpectOpt) (string, error) {
 	if matcher != nil {
 		cb, ok := matcher.(CallbackMatcher)
 		if ok {
-			err = cb.Callback(buf)
+			err = cb.Callback(c.MatchState)
 			if err != nil {
-				return buf.String(), err
+				return c.MatchState.Buf.String(), err
 			}
 		}
 	}
 
-	return buf.String(), err
+	return c.MatchState.Buf.String(), err
 }

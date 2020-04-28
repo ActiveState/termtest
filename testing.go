@@ -6,7 +6,6 @@ package termtest
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	expect "github.com/ActiveState/go-expect"
@@ -25,8 +24,8 @@ func TestSendObserveFn(t *testing.T) func(string, int, error) {
 }
 
 // TestExpectObserveFn an example for a ExpectObserver function, it reports any error occurring durint expect calls to the supplied testing instance
-func TestExpectObserveFn(t *testing.T) func([]expect.Matcher, string, string, error) {
-	return func(matchers []expect.Matcher, raw, pty string, err error) {
+func TestExpectObserveFn(t *testing.T) expect.ExpectObserver {
+	return func(matchers []expect.Matcher, ms *expect.MatchState, err error) {
 		if err == nil {
 			return
 		}
@@ -38,11 +37,9 @@ func TestExpectObserveFn(t *testing.T) func([]expect.Matcher, string, string, er
 			sep = ", "
 		}
 
-		pty = strings.TrimRight(pty, " \n") + "\n"
-
 		t.Fatalf(
-			"Could not meet expectation: Expectation: '%s'\nError: %v at\n%s\n---\nTerminal snapshot:\n%s\n---\nParsed output:\n%s\n",
-			value, err, stacktrace.Get().String(), pty, raw,
+			"Could not meet expectation: Expectation: '%s'\nError: %v at\n%s\n---\nTerminal snapshot:\n%s\n---\nParsed output:\n%+q\n",
+			value, err, stacktrace.Get().String(), ms.TermState.StringBeforeCursor(), ms.Buf.String(),
 		)
 	}
 }

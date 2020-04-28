@@ -15,11 +15,9 @@
 package expect
 
 import (
-	"bytes"
 	"io"
 	"os"
 	"regexp"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -37,7 +35,7 @@ func WithTimeout(timeout time.Duration) ExpectOpt {
 
 // ConsoleCallback is a callback function to execute if a match is found for
 // the chained matcher.
-type ConsoleCallback func(buf *bytes.Buffer) error
+type ConsoleCallback func(ms *MatchState) error
 
 // Then returns an Expect condition to execute a callback if a match is found
 // for the chained matcher.
@@ -78,9 +76,9 @@ func (eo ExpectOpts) Match(v interface{}) Matcher {
 
 // CallbackMatcher is a matcher that provides a Callback function.
 type CallbackMatcher interface {
-	// Callback executes the matcher's callback with the content buffer at the
+	// Callback executes the matcher's callback with the terminal state at the
 	// time of match.
-	Callback(buf *bytes.Buffer) error
+	Callback(matchState *MatchState) error
 }
 
 // Matcher provides an interface for finding a match in content read from
@@ -106,15 +104,15 @@ func (cm *callbackMatcher) Criteria() interface{} {
 	return cm.matcher.Criteria()
 }
 
-func (cm *callbackMatcher) Callback(buf *bytes.Buffer) error {
+func (cm *callbackMatcher) Callback(ms *MatchState) error {
 	cb, ok := cm.matcher.(CallbackMatcher)
 	if ok {
-		err := cb.Callback(buf)
+		err := cb.Callback(ms)
 		if err != nil {
 			return err
 		}
 	}
-	err := cm.f(buf)
+	err := cm.f(ms)
 	if err != nil {
 		return err
 	}
@@ -159,11 +157,11 @@ func (em *pathErrorMatcher) Criteria() interface{} {
 	return em.pathError
 }
 
-type oneOfMatcher struct {
+type anyMatcher struct {
 	options ExpectOpts
 }
 
-func (om *oneOfMatcher) Match(v interface{}) bool {
+func (om *anyMatcher) Match(v interface{}) bool {
 	for _, matcher := range om.options.Matchers {
 		if matcher.Match(v) {
 			return true
@@ -172,7 +170,7 @@ func (om *oneOfMatcher) Match(v interface{}) bool {
 	return false
 }
 
-func (om *oneOfMatcher) Criteria() interface{} {
+func (om *anyMatcher) Criteria() interface{} {
 	var criterias []interface{}
 	for _, matcher := range om.options.Matchers {
 		criterias = append(criterias, matcher.Criteria())
@@ -181,20 +179,17 @@ func (om *oneOfMatcher) Criteria() interface{} {
 }
 
 // stringMatcher fulfills the Matcher interface to match strings against a given
-// bytes.Buffer.
+// MatchState
 type stringMatcher struct {
 	str string
 }
 
 func (sm *stringMatcher) Match(v interface{}) bool {
-	buf, ok := v.(*bytes.Buffer)
+	ms, ok := v.(*MatchState)
 	if !ok {
 		return false
 	}
-	if strings.Contains(buf.String(), sm.str) {
-		return true
-	}
-	return false
+	return ms.TermState.HasStringBeforeCursor(sm.str)
 }
 
 func (sm *stringMatcher) Criteria() interface{} {
@@ -202,17 +197,17 @@ func (sm *stringMatcher) Criteria() interface{} {
 }
 
 // regexpMatcher fulfills the Matcher interface to match Regexp against a given
-// bytes.Buffer.
+// MatchState.
 type regexpMatcher struct {
 	re *regexp.Regexp
 }
 
 func (rm *regexpMatcher) Match(v interface{}) bool {
-	buf, ok := v.(*bytes.Buffer)
+	ms, ok := v.(*MatchState)
 	if !ok {
 		return false
 	}
-	return rm.re.Match(buf.Bytes())
+	return rm.re.MatchString(ms.UnwrappedStringToCursorFromMatch(0))
 }
 
 func (rm *regexpMatcher) Criteria() interface{} {
@@ -356,7 +351,9 @@ func StdinClosed(opts *ExpectOpts) error {
 	return nil
 }
 
-func OneOf(expectOpts ...ExpectOpt) ExpectOpt {
+// Any adds an Expect condition to exit if the content read from Console's tty
+// matches any of the provided ExpectOpt
+func Any(expectOpts ...ExpectOpt) ExpectOpt {
 	return func(opts *ExpectOpts) error {
 		var options ExpectOpts
 		for _, opt := range expectOpts {
@@ -365,7 +362,7 @@ func OneOf(expectOpts ...ExpectOpt) ExpectOpt {
 			}
 		}
 
-		opts.Matchers = append(opts.Matchers, &oneOfMatcher{
+		opts.Matchers = append(opts.Matchers, &anyMatcher{
 			options: options,
 		})
 		return nil

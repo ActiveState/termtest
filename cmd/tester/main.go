@@ -8,12 +8,16 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"log"
 	"os/signal"
 	"time"
+
+	"github.com/ActiveState/termtest/winterm"
 )
 
 var exit1 = flag.Bool("exit1", false, "exit the script with exit code 1")
 var sleep = flag.Bool("sleep", false, "sleep for an hour, basically never return unless interrupted")
+var consoleMode = flag.Bool("console-mode", false, "show current console mode (for windows only)")
 var fillBuffer = flag.Bool("fill-buffer", false, "print a string with 100,00 characters")
 var stutter = flag.Bool("stutter", false, "print 50 messages with 50 ms delays")
 
@@ -42,9 +46,26 @@ func main() {
 		}
 	}
 
+	if *consoleMode {
+		mode, err := winterm.GetStdoutConsoleMode()
+		if err != nil {
+			log.Fatalf("Could not get console mode: %v\n", err)
+		}
+		fmt.Printf("console mode: %d\n", mode)
+	}
+
 	if *fillBuffer {
-		for i := 0; i < 1e4; i++ {
-			os.Stdout.Write([]byte("a"))
+		/*
+		err = winterm.SetConsoleMode(uintptr(stdOutHandle), winterm.ENABLE_WRAP_AT_EOL_OUTPUT | winterm.ENABLE_VIRTUAL_TERMINAL_PROCESSING | winterm.DISABLE_NEWLINE_AUTO_RETURN)
+		if err != nil {
+			log.Fatalf("Could not set console mode: %v\n", err)
+		}
+		*/
+		for i := 0; i < 300; i++ {
+			os.Stdout.WriteString(fmt.Sprintf(":%03d:", i))
+			for j := 5; j < 80; j++ {
+				os.Stdout.WriteString(fmt.Sprintf("%d", j%10))
+			}
 		}
 		os.Stdout.Write([]byte("\n"))
 	}

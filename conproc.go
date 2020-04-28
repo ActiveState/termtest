@@ -17,9 +17,8 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"testing"
 	"time"
-
-	"github.com/ActiveState/vt10x"
 
 	expect "github.com/ActiveState/go-expect"
 	"github.com/ActiveState/termtest/internal/osutils"
@@ -44,11 +43,17 @@ type ConsoleProcess struct {
 	opts    Options
 	errs    chan error
 	console *expect.Console
-	vtstrip *vt10x.VTStrip
 	cmd     *exec.Cmd
 	cmdName string
 	ctx     context.Context
 	cancel  func()
+}
+
+// NewTest bonds a command process with a console pty and sets it up for testing
+func NewTest(t *testing.T, opts Options) (*ConsoleProcess, error) {
+	opts.ObserveExpect = TestExpectObserveFn(t)
+	opts.ObserveSend = TestSendObserveFn(t)
+	return New(opts)
 }
 
 // New bonds a command process with a console pty.
@@ -67,16 +72,14 @@ func New(opts Options) (*ConsoleProcess, error) {
 	cmd.SysProcAttr = osutils.SysProcAttrForNewProcessGroup()
 	fmt.Printf("Spawning '%s' from %s\n", osutils.CmdString(cmd), opts.WorkDirectory)
 
-	expectObs := &expectObserverTransform{observeFn: opts.ObserveExpect}
-
-	vtstrip := vt10x.NewStrip()
-
-	console, err := expect.NewConsole(
+	conOpts := []expect.ConsoleOpt{
 		expect.WithDefaultTimeout(opts.DefaultTimeout),
-		expect.WithReadBufferMutation(vtstrip.Strip),
 		expect.WithSendObserver(expect.SendObserver(opts.ObserveSend)),
-		expect.WithExpectObserver(expectObs.observe),
-	)
+		expect.WithExpectObserver(opts.ObserveExpect),
+	}
+	conOpts = append(conOpts, opts.ExtraOpts...)
+
+	console, err := expect.NewConsole(conOpts...)
 
 	if err != nil {
 		return nil, err
@@ -92,14 +95,11 @@ func New(opts Options) (*ConsoleProcess, error) {
 		opts:    opts,
 		errs:    make(chan error),
 		console: console,
-		vtstrip: vtstrip,
 		cmd:     cmd,
 		cmdName: opts.CmdName,
 		ctx:     ctx,
 		cancel:  cancel,
 	}
-
-	expectObs.setRawDataFn(cp.Snapshot)
 
 	// Asynchronously wait for the underlying process to finish and communicate
 	// results to `cp.errs` channel
@@ -117,7 +117,9 @@ func New(opts Options) (*ConsoleProcess, error) {
 			return
 		}
 
-		_ = console.CloseTTY()
+		// wait till passthrough-pipe has caught up
+		cp.console.Pty.WaitTillDrained()
+		_ = console.Pty.CloseTTY()
 	}()
 
 	return &cp, nil
@@ -244,6 +246,18 @@ func (cp *ConsoleProcess) Stop() error {
 	return cp.cmd.Process.Signal(os.Interrupt)
 }
 
+// MatchState returns the current state of the expect-matcher
+func (cp *ConsoleProcess) MatchState() *expect.MatchState {
+	return cp.console.MatchState
+}
+
+func (cp *ConsoleProcess) rawString() string {
+	if cp.console.MatchState.Buf == nil {
+		return ""
+	}
+	return cp.console.MatchState.Buf.String()
+}
+
 type exitCodeMatcher struct {
 	exitCode int
 	expected bool
@@ -264,54 +278,54 @@ func (em *exitCodeMatcher) Criteria() interface{} {
 
 // ExpectExitCode waits for the program under test to terminate, and checks that the returned exit code meets expectations
 func (cp *ConsoleProcess) ExpectExitCode(exitCode int, timeout ...time.Duration) (string, error) {
-	_, buf, err := cp.wait(timeout...)
+	_, err := cp.wait(timeout...)
 	if err == nil && exitCode == 0 {
-		return buf, nil
+		return cp.rawString(), nil
 	}
 	matchers := []expect.Matcher{&exitCodeMatcher{exitCode, true}}
 	eexit, ok := err.(*exec.ExitError)
 	if !ok {
 		e := fmt.Errorf("process failed with error: %w", err)
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
-		return buf, e
+		cp.opts.ObserveExpect(matchers, cp.MatchState(), e)
+		return cp.rawString(), e
 	}
 	if eexit.ExitCode() != exitCode {
 		e := fmt.Errorf("exit code wrong: was %d (expected %d)", eexit.ExitCode(), exitCode)
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
-		return buf, e
+		cp.opts.ObserveExpect(matchers, cp.MatchState(), e)
+		return cp.rawString(), e
 	}
-	return buf, nil
+	return cp.rawString(), nil
 }
 
 // ExpectNotExitCode waits for the program under test to terminate, and checks that the returned exit code is not the value provide
 func (cp *ConsoleProcess) ExpectNotExitCode(exitCode int, timeout ...time.Duration) (string, error) {
-	_, buf, err := cp.wait(timeout...)
+	_, err := cp.wait(timeout...)
 	matchers := []expect.Matcher{&exitCodeMatcher{exitCode, false}}
 	if err == nil {
 		if exitCode == 0 {
 			e := fmt.Errorf("exit code wrong: should not have been 0")
-			cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
-			return buf, e
+			cp.opts.ObserveExpect(matchers, cp.MatchState(), e)
+			return cp.rawString(), e
 		}
-		return buf, nil
+		return cp.rawString(), nil
 	}
 	eexit, ok := err.(*exec.ExitError)
 	if !ok {
 		e := fmt.Errorf("process failed with error: %w", err)
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
-		return buf, e
+		cp.opts.ObserveExpect(matchers, cp.MatchState(), e)
+		return cp.rawString(), e
 	}
 	if eexit.ExitCode() == exitCode {
 		e := fmt.Errorf("exit code wrong: should not have been %d", exitCode)
-		cp.opts.ObserveExpect(matchers, cp.TrimmedSnapshot(), buf, e)
-		return buf, e
+		cp.opts.ObserveExpect(matchers, cp.MatchState(), e)
+		return cp.rawString(), e
 	}
-	return buf, nil
+	return cp.rawString(), nil
 }
 
 // Wait waits for the program under test to terminate, not caring about the exit code at all
 func (cp *ConsoleProcess) Wait(timeout ...time.Duration) {
-	_, _, err := cp.wait(timeout...)
+	_, err := cp.wait(timeout...)
 	if err != nil {
 		fmt.Printf("Process exited with error: %v (This is not fatal when using Wait())", err)
 	}
@@ -330,7 +344,7 @@ func (cp *ConsoleProcess) forceKill() {
 // Note, that without draining the output pipe, the process might hang.
 // As soon as the process actually finishes, it waits for the underlying console to be closed
 // and gives all readers a chance to read remaining bytes.
-func (cp *ConsoleProcess) wait(timeout ...time.Duration) (*os.ProcessState, string, error) {
+func (cp *ConsoleProcess) wait(timeout ...time.Duration) (*os.ProcessState, error) {
 	if cp.cmd == nil || cp.cmd.Process == nil {
 		panic(ErrNoProcess.Error())
 	}
@@ -342,13 +356,11 @@ func (cp *ConsoleProcess) wait(timeout ...time.Duration) (*os.ProcessState, stri
 
 	finalErrCh := make(chan error)
 	defer close(finalErrCh)
-	var buf string
 	go func() {
-		b, err := cp.console.Expect(
-			expect.OneOf(expect.PTSClosed, expect.StdinClosed, expect.EOF),
+		_, err := cp.console.Expect(
+			expect.Any(expect.PTSClosed, expect.StdinClosed, expect.EOF),
 			expect.WithTimeout(t),
 		)
-		buf = b
 		finalErrCh <- err
 	}()
 
@@ -363,18 +375,18 @@ func (cp *ConsoleProcess) wait(timeout ...time.Duration) (*os.ProcessState, stri
 		}
 		// we only expect timeout or EOF errors here, otherwise something went wrong
 		if expErr != nil && !(os.IsTimeout(expErr) || expErr == io.EOF) {
-			return nil, buf, fmt.Errorf("unexpected error while waiting for exit code: %v", expErr)
+			return nil, fmt.Errorf("unexpected error while waiting for exit code: %v", expErr)
 		}
-		return cp.cmd.ProcessState, buf, perr
+		return cp.cmd.ProcessState, perr
 	case <-time.After(t):
 		// we can ignore the error from the expect (this will also time out)
 		<-finalErrCh
 		log.Println("killing process after timeout")
 		cp.forceKill()
-		return nil, buf, ErrWaitTimeout
+		return nil, ErrWaitTimeout
 	case <-cp.ctx.Done():
 		// wait until expect returns (will be forced by closed console)
 		<-finalErrCh
-		return nil, buf, fmt.Errorf("ConsoleProcess context canceled")
+		return nil, fmt.Errorf("ConsoleProcess context canceled")
 	}
 }

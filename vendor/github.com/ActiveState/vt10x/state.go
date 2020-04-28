@@ -82,6 +82,8 @@ type parseState func(c rune) bool
 // methods to synchronize data access with VT.
 type State struct {
 	DebugLogger *log.Logger
+	// RecordHistory is a flag that when set to true keeps a history of all lines that are scrolled out of view
+	RecordHistory bool
 
 	w             io.Writer
 	mu            sync.Mutex
@@ -100,6 +102,7 @@ type State struct {
 	numlock       bool
 	tabs          []bool
 	title         string
+	history       []line
 }
 
 func (t *State) logf(format string, args ...interface{}) {
@@ -187,6 +190,21 @@ func (t *State) saveCursor() {
 func (t *State) restoreCursor() {
 	t.cur = t.curSaved
 	t.moveTo(t.cur.x, t.cur.y)
+}
+
+// WriteString processes the given string and updates the state
+// This function is usually used for testing, as it also initializes the states,
+// so previous state modifications are lost
+func (t *State) WriteString(s string, rows, cols int) {
+	t.numlock = true
+	t.state = t.parse
+	t.cur.attr.fg = DefaultBG
+	t.cur.attr.bg = DefaultBG
+	t.resize(rows, cols)
+	t.reset()
+	for _, c := range []rune(s) {
+		t.put(c)
+	}
 }
 
 func (t *State) put(c rune) bool {
@@ -281,6 +299,7 @@ func (t *State) reset() {
 	t.mode = ModeWrap
 	t.clear(0, 0, t.rows-1, t.cols-1)
 	t.moveTo(0, 0)
+	t.history = make([]line, 0)
 }
 
 // TODO: definitely can improve allocs
@@ -459,6 +478,13 @@ func (t *State) scrollDown(orig, n int) {
 
 func (t *State) scrollUp(orig, n int) {
 	n = clamp(n, 0, t.bottom-orig+1)
+	if t.RecordHistory && orig == t.top {
+		for i := orig; i < orig+n; i++ {
+			l := make([]glyph, len(t.lines[i]))
+			copy(l, t.lines[i])
+			t.history = append(t.history, l)
+		}
+	}
 	t.clear(0, orig, t.cols-1, orig+n-1)
 	t.changed |= ChangedScreen
 	for i := orig; i <= t.bottom-n; i++ {
@@ -708,21 +734,125 @@ func (t *State) setTitle(title string) {
 	t.title = title
 }
 
+// GlobalCursor returns the current position including the history
+func (t *State) GlobalCursor() (int, int) {
+	cx := t.cur.x
+	if t.cur.state&cursorWrapNext != 0 {
+		cx++
+	}
+	return cx, t.cur.y + len(t.history)
+}
+
+// Size returns rows and columns of state
 func (t *State) Size() (rows int, cols int) {
 	return t.rows, t.cols
 }
 
+// String returns a string representation of the terminal output
 func (t *State) String() string {
+	return t.string(false, false, -1, 0)
+}
+
+// StringBeforeCursor returns the terminal output in front of the cursor
+func (t *State) StringBeforeCursor() string {
+	return t.string(false, true, -1, 0)
+}
+
+// UnwrappedStringBeforeCursor returns the terminal output in front of the cursor without the automatic line wrapping
+func (t *State) UnwrappedStringBeforeCursor() string {
+	return t.string(true, true, -1, 0)
+}
+
+// StringToCursorFrom returns the string before the cursor starting from the global position row and col
+func (t *State) StringToCursorFrom(row int, col int) string {
+	return t.string(false, true, row, col)
+}
+
+// UnwrappedStringToCursorFrom returns the string before the cursor starting from the global position row and col without the automatic line wrapping
+func (t *State) UnwrappedStringToCursorFrom(row int, col int) string {
+	return t.string(true, true, row, col)
+}
+
+// HasStringBeforeCursor checks whether `m` matches the string before the cursor position
+func (t *State) HasStringBeforeCursor(m string) bool {
+	um := []rune(m)
+	i := len(um) - 1
+
+	// quick check if there actually is enough data written to the terminal
+	if len(um) > (len(t.history)+t.cur.y+1)*t.cols {
+		return false
+	}
+
+	onWrap := t.cur.state&cursorWrapNext != 0
+	x := t.cur.x
+	if !onWrap {
+		x--
+	}
+	y := t.cur.y
+	for ; y >= 0 && i >= 0; y-- {
+		for ; x >= 0 && i >= 0; x-- {
+			c, _, _ := t.Cell(x, y)
+			if c != um[i] {
+				return false
+			}
+			i--
+		}
+		x = t.cols - 1
+	}
+	for y = len(t.history) - 1; y >= 0 && i >= 0; y-- {
+		for x = t.cols - 1; x >= 0 && i >= 0; x-- {
+			c := t.history[y][x].c
+			if c != um[i] {
+				return false
+			}
+			i--
+		}
+	}
+
+	// ensure that we matched all the characters that we were looking for
+	return i == -1
+}
+
+func (t *State) string(unwrap bool, toCursor bool, fromRow int, fromCol int) string {
 	t.Lock()
 	defer t.Unlock()
 
+	lh := len(t.history)
+	if fromRow == -1 {
+		fromRow = lh
+	}
+
 	var view []rune
-	for y := 0; y < t.rows; y++ {
-		for x := 0; x < t.cols; x++ {
+	x := fromCol
+	for y := fromRow; y < lh; y++ {
+		for ; x < t.cols; x++ {
+			c := t.history[y][x].c
+			view = append(view, c)
+		}
+		x = 0
+		if !unwrap {
+			view = append(view, '\n')
+		}
+		fromRow = lh
+	}
+
+	onWrap := t.cur.state&cursorWrapNext != 0
+	curX := t.cur.x
+	if onWrap {
+		curX++
+	}
+	for y := fromRow - lh; y < t.rows && (!toCursor || y <= t.cur.y); y++ {
+		for ; x < t.cols; x++ {
+			if toCursor && x == curX && y == t.cur.y {
+				break
+			}
 			c, _, _ := t.Cell(x, y)
 			view = append(view, c)
 		}
-		view = append(view, '\n')
+		x = 0
+		if !unwrap {
+			view = append(view, '\n')
+		}
 	}
 
 	return string(view)
