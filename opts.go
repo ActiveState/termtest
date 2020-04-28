@@ -27,6 +27,7 @@ type Options struct {
 	ObserveExpect  expect.ExpectObserver
 	CmdName        string
 	Args           []string
+	ExtraOpts      []expect.ConsoleOpt
 }
 
 // Normalize fills in default options

@@ -72,11 +72,14 @@ func New(opts Options) (*ConsoleProcess, error) {
 	cmd.SysProcAttr = osutils.SysProcAttrForNewProcessGroup()
 	fmt.Printf("Spawning '%s' from %s\n", osutils.CmdString(cmd), opts.WorkDirectory)
 
-	console, err := expect.NewConsole(
+	conOpts := []expect.ConsoleOpt{
 		expect.WithDefaultTimeout(opts.DefaultTimeout),
 		expect.WithSendObserver(expect.SendObserver(opts.ObserveSend)),
 		expect.WithExpectObserver(opts.ObserveExpect),
-	)
+	}
+	conOpts = append(conOpts, opts.ExtraOpts...)
+
+	console, err := expect.NewConsole(conOpts...)
 
 	if err != nil {
 		return nil, err
