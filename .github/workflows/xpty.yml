@@ -1,0 +1,42 @@
+name: xpty-unit-tests
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'xpty/**'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'xpty/**'
+
+defaults:
+  run:
+    working-directory: conpty
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      GOFLAGS: "-mod=vendor"
+    steps:
+
+    - name: Set up Go 1.13
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13.x
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Build
+      run: go build -v .
+
+    - name: Test
+      run: go test -v .
