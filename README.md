@@ -6,7 +6,7 @@
 
 An automatable terminal session with send/expect controls.
 
-This package leverages the [go-expect](https://github.com/ActiveState/go-expect) package to test terminal applications on Linux, MacOS and Windows.
+This package leverages the [go-expect](https://github.com/ActiveState/termtest/expect) package to test terminal applications on Linux, MacOS and Windows.
 
 It has been developed for CI testing of the [ActiveState state
 tool](https://www.activestate.com/products/platform/state-tool/)
