@@ -7,12 +7,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 	"log"
+	"os"
 	"os/signal"
 	"time"
 
-	"github.com/ActiveState/termtest/winterm"
+	"github.com/Azure/go-ansiterm/winterm
 )
 
 var exit1 = flag.Bool("exit1", false, "exit the script with exit code 1")
@@ -55,12 +55,6 @@ func main() {
 	}
 
 	if *fillBuffer {
-		/*
-		err = winterm.SetConsoleMode(uintptr(stdOutHandle), winterm.ENABLE_WRAP_AT_EOL_OUTPUT | winterm.ENABLE_VIRTUAL_TERMINAL_PROCESSING | winterm.DISABLE_NEWLINE_AUTO_RETURN)
-		if err != nil {
-			log.Fatalf("Could not set console mode: %v\n", err)
-		}
-		*/
 		for i := 0; i < 300; i++ {
 			os.Stdout.WriteString(fmt.Sprintf(":%03d:", i))
 			for j := 5; j < 80; j++ {
