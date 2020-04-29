@@ -6,7 +6,10 @@
 
 An automatable terminal session with send/expect controls.
 
-This package leverages the [go-expect](https://github.com/ActiveState/termtest/expect) package to test terminal applications on Linux, MacOS and Windows.
+This package leverages the
+[go-expect](https://github.com/ActiveState/termtest/expect) package to test
+terminal applications on Linux, MacOS and Windows, which has been forked from
+[Netflix/go-expect](https://github.com/Netflix/go-expect)
 
 It has been developed for CI testing of the [ActiveState state
 tool](https://www.activestate.com/products/platform/state-tool/)
@@ -74,4 +77,5 @@ cp.Expect("0123456789012345")  // this matches
 ### Custom matchers
 
 Custom matchers that match against either the raw / or processed pseudo-terminal output can be specified in the `go-expect` package.  See `expect_opt.go` for examples.
+
 
