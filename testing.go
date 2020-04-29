@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"testing"
 
-	expect "github.com/ActiveState/go-expect"
+	expect "github.com/ActiveState/termtest/expect"
 	"github.com/ActiveState/termtest/internal/osutils/stacktrace"
 )
 

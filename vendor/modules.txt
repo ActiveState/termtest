@@ -4,6 +4,14 @@ github.com/ActiveState/go-conpty
 ## explicit
 github.com/ActiveState/go-expect
 github.com/ActiveState/go-expect/internal/osutils
+# github.com/ActiveState/termtest/conpty v0.5.0
+github.com/ActiveState/termtest/conpty
+# github.com/ActiveState/termtest/expect v0.5.1
+## explicit
+github.com/ActiveState/termtest/expect
+github.com/ActiveState/termtest/expect/internal/osutils
+# github.com/ActiveState/termtest/xpty v0.5.0
+github.com/ActiveState/termtest/xpty
 # github.com/ActiveState/vt10x v1.2.0
 ## explicit
 github.com/ActiveState/vt10x
@@ -27,7 +35,7 @@ github.com/pmezard/go-difflib/difflib
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
-# golang.org/x/sys v0.0.0-20200413165638-669c56c373c4
+# golang.org/x/sys v0.0.0-20200428200454-593003d681fa
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/yaml.v2 v2.2.2
