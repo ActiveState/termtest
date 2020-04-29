@@ -12,7 +12,7 @@ on:
 
 defaults:
   run:
-    working-directory: conpty
+    working-directory: xpty
 
 jobs:
 
