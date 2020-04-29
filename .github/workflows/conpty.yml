@@ -3,12 +3,12 @@ name: test-example
 on:
   push:
     branches: [ master ]
-  paths:
-    - 'conpty/**'
+    paths:
+      - 'conpty/**'
   pull_request:
     branches: [ master ]
-  paths:
-    - 'conpty/**'
+    paths:
+      - 'conpty/**'
 
 defaults:
   run:
