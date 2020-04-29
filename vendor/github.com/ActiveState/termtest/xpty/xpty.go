@@ -168,6 +168,11 @@ func (p *Xpty) WriteTo(w io.Writer) (int64, error) {
 // WaitTillDrained waits until the PassthroughPipe is blocked in the reading state.
 // When this function returns, the PassthroughPipe should be blocked in the
 // reading state waiting for more input.
+// XXXHACK: This function certainly is a hack right now, and it can fail on slower machines
+// (embedded systems or on machines with heavy loads).  A better solution would be read
+// from the original file NON_BLOCKING and return as soon as no bytes are available anymore.
+// This requires access to low-level functions that are not abstracted by a library known to me
+// for different operating systems.  So, it is a future improvement.
 func (p *Xpty) WaitTillDrained() {
 	for {
 		if p.pp.IsBlocked() {
