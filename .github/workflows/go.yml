@@ -10,7 +10,6 @@ jobs:
 
   build:
     env:
-      GOPRIVATE: github.com/ActiveState/go-conpty,github.com/ActiveState/xpty,github.com/ActiveState/go-expect
       GOFLAGS: "-mod=vendor"
     name: Build
     runs-on: ${{ matrix.os }}
