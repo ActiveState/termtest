@@ -1,0 +1,27 @@
+# github.com/ActiveState/termtest/conpty v0.5.0
+github.com/ActiveState/termtest/conpty
+# github.com/ActiveState/vt10x v1.2.0
+github.com/ActiveState/vt10x
+# github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
+github.com/Azure/go-ansiterm
+github.com/Azure/go-ansiterm/winterm
+# github.com/Netflix/go-expect v0.0.0-20180615182759-c93bf25de8e8
+github.com/Netflix/go-expect
+# github.com/creack/pty v1.1.9
+github.com/creack/pty
+# github.com/davecgh/go-spew v1.1.0
+github.com/davecgh/go-spew/spew
+# github.com/kr/pty v1.1.1
+github.com/kr/pty
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.5.1
+github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
+# golang.org/x/crypto v0.0.0-20200427165652-729f1e841bcc
+golang.org/x/crypto/ssh/terminal
+# golang.org/x/sys v0.0.0-20200428200454-593003d681fa
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+# gopkg.in/yaml.v2 v2.2.2
+gopkg.in/yaml.v2
