@@ -27,6 +27,7 @@ type Options struct {
 	ObserveExpect  expect.ExpectObserver
 	CmdName        string
 	Args           []string
+	HideCmdLine    bool
 	ExtraOpts      []expect.ConsoleOpt
 }
 

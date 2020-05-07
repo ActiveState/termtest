@@ -70,7 +70,11 @@ func New(opts Options) (*ConsoleProcess, error) {
 	// This makes the behavior more consistent, as it isolates the signal handling from
 	// the parent processes, which are dependent on the test environment.
 	cmd.SysProcAttr = osutils.SysProcAttrForNewProcessGroup()
-	fmt.Printf("Spawning '%s' from %s\n", osutils.CmdString(cmd), opts.WorkDirectory)
+	cmdString := osutils.CmdString(cmd)
+	if opts.HideCmdLine {
+		cmdString = "*****"
+	}
+	fmt.Printf("Spawning '%s' from %s\n", cmdString, opts.WorkDirectory)
 
 	conOpts := []expect.ConsoleOpt{
 		expect.WithDefaultTimeout(opts.DefaultTimeout),
