@@ -70,6 +70,9 @@ func (p *impl) startProcessInTerminal(c *exec.Cmd) (err error) {
 		Dir: c.Dir,
 		Env: envv,
 	})
+	if err != nil {
+		return fmt.Errorf("Failed to spawn process in terminal: %v", err)
+	}
 
 	// Let's pray that this always works.  Unfortunately we cannot create our process from a process handle.
 	c.Process, err = os.FindProcess(pid)
@@ -79,5 +82,5 @@ func (p *impl) startProcessInTerminal(c *exec.Cmd) (err error) {
 
 	// runtime.SetFinalizer(h, )
 
-	return
+	return nil
 }
