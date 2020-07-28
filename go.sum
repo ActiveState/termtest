@@ -4,10 +4,10 @@ github.com/ActiveState/go-expect v0.2.0 h1:bm1sobB8sMeuJPEBpS3u5OZdQYC0NzFOMh/Ve
 github.com/ActiveState/go-expect v0.2.0/go.mod h1:2iws19tf0uTZb4FMPDTWC28pO6qYkVJzHoYx4dPxfwM=
 github.com/ActiveState/termtest/conpty v0.5.0 h1:JLUe6YDs4Jw4xNPCU+8VwTpniYOGeKzQg4SM2YHQNA8=
 github.com/ActiveState/termtest/conpty v0.5.0/go.mod h1:LO4208FLsxw6DcNZ1UtuGUMW+ga9PFtX4ntv8Ymg9og=
-github.com/ActiveState/termtest/expect v0.5.2 h1:8HAr8vuhbYD4W0/nAlY7jXP3Za9MAWC0vptuF/HUF0o=
-github.com/ActiveState/termtest/expect v0.5.2/go.mod h1:qKdCZZWsYjDVvg5WSEr3Rf9DhgCEgoGTF6e0PF6fXdA=
-github.com/ActiveState/termtest/xpty v0.5.2 h1:MNxLhMMez9pMr8qy98UAP7DX+Zo3fKJMw/4qSTx3XAs=
-github.com/ActiveState/termtest/xpty v0.5.2/go.mod h1:W6X8GbWshK/Y3zmyDCT/dhD820kPIL+4QO5dIGunrXU=
+github.com/ActiveState/termtest/expect v0.5.3 h1:Ff74A9SmOIoFtwyjkXKmFf58wxYbsosJZlalGaUv5r0=
+github.com/ActiveState/termtest/expect v0.5.3/go.mod h1:h4PCsFTdsW5Xhl0mTwpMfCBNG2pRDsSVZcHYQ22EodM=
+github.com/ActiveState/termtest/xpty v0.5.3 h1:N++FPVKbrWp5PjSBxi35ufOiPC0IhGyvjkoOqeVGvfM=
+github.com/ActiveState/termtest/xpty v0.5.3/go.mod h1:W6X8GbWshK/Y3zmyDCT/dhD820kPIL+4QO5dIGunrXU=
 github.com/ActiveState/vt10x v1.2.0 h1:sqHZIyJRpUVRHivcr6fDh/6kwFdM3GfYSD+rrKuG9Tc=
 github.com/ActiveState/vt10x v1.2.0/go.mod h1:8wJKd36c9NmCfGyPyOJmkvyIMvbUPfHkfdS8zZlK19s=
 github.com/ActiveState/xpty v0.2.0 h1:fv4FMq9a5xKolGkFsIaf87YVe+llTgvEeSEbaOBTLvE=
@@ -57,8 +57,8 @@ golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20200413165638-669c56c373c4/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200428200454-593003d681fa h1:yMbJOvnfYkO1dSAviTu/ZguZWLBTXx4xE3LYrxUCCiA=
 golang.org/x/sys v0.0.0-20200428200454-593003d681fa/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20200722175500-76b94024e4b6 h1:X9xIZ1YU8bLZA3l6gqDUHSFiD0GFI9S548h6C8nDtOY=
-golang.org/x/sys v0.0.0-20200722175500-76b94024e4b6/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1 h1:sIky/MyNRSHTrdxfsiUSS4WIAMvInbeXljJz+jDjeYE=
+golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/tools v0.0.0-20190328211700-ab21143f2384/go.mod h1:LCzVGOaR6xXOjkQ3onu1FJEFr0SW1gC7cKk1uF8kGRs=
 gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0/go.mod h1:OdE7CF6DbADk7lN8LIKRzRJTTZXIjtWgA5THM5lhBAw=
