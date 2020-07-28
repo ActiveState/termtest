@@ -9,3 +9,5 @@ require (
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/crypto v0.0.0-20200427165652-729f1e841bcc
 )
+
+replace github.com/ActiveState/termtest/conpty => ../conpty
