@@ -9,7 +9,7 @@ require (
 	github.com/creack/pty v1.1.11 // indirect
 	github.com/kr/pty v1.1.8 // indirect
 	github.com/stretchr/testify v1.5.1
-	golang.org/x/sys v0.0.0-20200722175500-76b94024e4b6 // indirect
+	golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1 // indirect
 )
 
 replace github.com/ActiveState/termtest/xpty => ../xpty
