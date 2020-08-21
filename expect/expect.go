@@ -35,6 +35,14 @@ func (c *Console) ExpectString(s string) (string, error) {
 	return c.Expect(String(s))
 }
 
+// ExpectLongString reads from Console's tty until the provided long string is read or
+// an error occurs, and returns the buffer read by Console.
+// This function ignores mismatches caused by newline and space characters to account
+// for wrappings at the maximum terminal width.
+func (c *Console) ExpectLongString(s string) (string, error) {
+	return c.Expect(LongString(s))
+}
+
 // ExpectEOF reads from Console's tty until EOF or an error occurs, and returns
 // the buffer read by Console.  We also treat the PTSClosed error as an EOF.
 func (c *Console) ExpectEOF() (string, error) {

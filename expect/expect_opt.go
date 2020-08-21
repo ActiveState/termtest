@@ -181,7 +181,8 @@ func (om *anyMatcher) Criteria() interface{} {
 // stringMatcher fulfills the Matcher interface to match strings against a given
 // MatchState
 type stringMatcher struct {
-	str string
+	str                     string
+	ignoreNewlinesAndSpaces bool
 }
 
 func (sm *stringMatcher) Match(v interface{}) bool {
@@ -189,7 +190,7 @@ func (sm *stringMatcher) Match(v interface{}) bool {
 	if !ok {
 		return false
 	}
-	return ms.TermState.HasStringBeforeCursor(sm.str)
+	return ms.TermState.HasStringBeforeCursor(sm.str, sm.ignoreNewlinesAndSpaces)
 }
 
 func (sm *stringMatcher) Criteria() interface{} {
@@ -266,6 +267,21 @@ func String(strs ...string) ExpectOpt {
 		for _, str := range strs {
 			opts.Matchers = append(opts.Matchers, &stringMatcher{
 				str: str,
+			})
+		}
+		return nil
+	}
+}
+
+// LongString adds an Expect condition to exit if the content read from Console's
+// tty contains any of the given long strings ignoring newlines and spaces to account
+// for potential automatic wrappings at the terminal width.
+func LongString(strs ...string) ExpectOpt {
+	return func(opts *ExpectOpts) error {
+		for _, str := range strs {
+			opts.Matchers = append(opts.Matchers, &stringMatcher{
+				str:                     str,
+				ignoreNewlinesAndSpaces: true,
 			})
 		}
 		return nil
