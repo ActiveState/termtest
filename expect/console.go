@@ -85,6 +85,8 @@ type ConsoleOpts struct {
 	ExpectObservers []ExpectObserver
 	SendObservers   []SendObserver
 	ReadTimeout     *time.Duration
+	TermCols        int
+	TermRows        int
 }
 
 // ExpectObserver provides an interface for a function callback that will
@@ -166,10 +168,28 @@ func WithDefaultTimeout(timeout time.Duration) ConsoleOpt {
 	}
 }
 
+// WithTermCols sets the number of columns in the terminal (Default: 80)
+func WithTermCols(cols int) ConsoleOpt {
+	return func(opts *ConsoleOpts) error {
+		opts.TermCols = cols
+		return nil
+	}
+}
+
+// WithTermRows sets the number of rows in the terminal (Default: 80)
+func WithTermRows(rows int) ConsoleOpt {
+	return func(opts *ConsoleOpts) error {
+		opts.TermRows = rows
+		return nil
+	}
+}
+
 // NewConsole returns a new Console with the given options.
 func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	options := ConsoleOpts{
-		Logger: log.New(ioutil.Discard, "", 0),
+		Logger:   log.New(ioutil.Discard, "", 0),
+		TermCols: 80,
+		TermRows: 30,
 	}
 
 	for _, opt := range opts {
@@ -179,12 +199,13 @@ func NewConsole(opts ...ConsoleOpt) (*Console, error) {
 	}
 
 	var pty *xpty.Xpty
+	rows := uint16(options.TermRows)
+	cols := uint16(options.TermCols)
 	// On Windows we are adding an extra row, because the last row appears to be empty usually
-	rows := uint16(30)
 	if runtime.GOOS == "windows" {
-		rows = 31
+		rows++
 	}
-	pty, err := xpty.New(80, rows, true)
+	pty, err := xpty.New(cols, rows, true)
 	if err != nil {
 		return nil, err
 	}
