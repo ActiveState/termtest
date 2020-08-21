@@ -56,6 +56,18 @@ func TestExpectOptString(t *testing.T) {
 			"Hello world",
 			false,
 		},
+		{
+			"Long wrapped text",
+			LongString("hello \r\nworld\r\nnewline"),
+			"hello    world     newline",
+			true,
+		},
+		{
+			"Long wrapped text mismatch",
+			LongString("Hello \r\nworld\r\nnewline"),
+			"hello    world     newline",
+			false,
+		},
 	}
 
 	for _, test := range tests {
