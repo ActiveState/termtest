@@ -190,6 +190,20 @@ func (cp *ConsoleProcess) ExpectRe(value string, timeout ...time.Duration) (stri
 	return cp.console.Expect(opts...)
 }
 
+// ExpectLongString listens to the terminal output and returns once the expected value is found or
+// a timeout occurs
+// This function ignores mismatches caused by newline and space characters to account
+// for wrappings at the maximum terminal width.
+// Default timeout is 10 seconds
+func (cp *ConsoleProcess) ExpectLongString(value string, timeout ...time.Duration) (string, error) {
+	opts := []expect.ExpectOpt{expect.LongString(value)}
+	if len(timeout) > 0 {
+		opts = append(opts, expect.WithTimeout(timeout[0]))
+	}
+
+	return cp.console.Expect(opts...)
+}
+
 // Expect listens to the terminal output and returns once the expected value is found or
 // a timeout occurs
 // Default timeout is 10 seconds
