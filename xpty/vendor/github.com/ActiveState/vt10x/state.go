@@ -773,39 +773,74 @@ func (t *State) UnwrappedStringToCursorFrom(row int, col int) string {
 	return t.string(true, true, row, col)
 }
 
+// matchRune checks if the rune `expected` matches the rune `got`
+// it also returns the updated index `i` assuming that we are going backwards in an array of of expected runes (as is done in HasStringBeforeCursor())
+// if `ignoreNewlinesAndSpaces` is true, newlines and spaces that mismatch are skipped over.
+func matchRune(got rune, expected []rune, i int, ignoreNewlinesAndSpaces bool) (bool, int) {
+	exactMatch := got == expected[i]
+	if exactMatch {
+		return true, i - 1
+	}
+	if !ignoreNewlinesAndSpaces {
+		return false, i
+	}
+
+	if got == ' ' {
+		return true, i
+	}
+
+	if expected[i] == ' ' || expected[i] == '\n' || expected[i] == '\r' {
+		if i == 0 {
+			return true, -1
+		}
+		return matchRune(got, expected, i-1, true)
+	}
+
+	return false, i
+}
+
 // HasStringBeforeCursor checks whether `m` matches the string before the cursor position
-func (t *State) HasStringBeforeCursor(m string) bool {
-	um := []rune(m)
-	i := len(um) - 1
+// If ignoreNewlinesAndSpaces is set to true, newline and space characters are skipped over
+func (t *State) HasStringBeforeCursor(m string, ignoreNewlinesAndSpaces bool) bool {
+	runesToMatch := []rune(m)
+	// set index of current rune to be matched
+	i := len(runesToMatch) - 1
 
 	// quick check if there actually is enough data written to the terminal
-	if len(um) > (len(t.history)+t.cur.y+1)*t.cols {
+	if len(runesToMatch) > (len(t.history)+t.cur.y+1)*t.cols {
 		return false
 	}
 
+	// if we are in the last column and in `cursorWrapNext` mode,
+	// the current character is in front of the cursor ...
 	onWrap := t.cur.state&cursorWrapNext != 0
 	x := t.cur.x
 	if !onWrap {
+		// ... otherwise go one character back
 		x--
 	}
 	y := t.cur.y
+	// first search for matching characters on the current screen
 	for ; y >= 0 && i >= 0; y-- {
 		for ; x >= 0 && i >= 0; x-- {
 			c, _, _ := t.Cell(x, y)
-			if c != um[i] {
+			var isOk bool
+			isOk, i = matchRune(c, runesToMatch, i, ignoreNewlinesAndSpaces)
+			if !isOk {
 				return false
 			}
-			i--
 		}
 		x = t.cols - 1
 	}
+	// then search for matching characters in the scroll buffer (history)
 	for y = len(t.history) - 1; y >= 0 && i >= 0; y-- {
 		for x = t.cols - 1; x >= 0 && i >= 0; x-- {
 			c := t.history[y][x].c
-			if c != um[i] {
+			var isOk bool
+			isOk, i = matchRune(c, runesToMatch, i, ignoreNewlinesAndSpaces)
+			if !isOk {
 				return false
 			}
-			i--
 		}
 	}
 
