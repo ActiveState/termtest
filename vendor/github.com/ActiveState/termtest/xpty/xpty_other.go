@@ -68,6 +68,5 @@ func (p *impl) startProcessInTerminal(cmd *exec.Cmd) error {
 	}
 	cmd.SysProcAttr.Setctty = true
 	cmd.SysProcAttr.Setsid = true
-	cmd.SysProcAttr.Ctty = int(p.pts.Fd())
 	return cmd.Start()
 }

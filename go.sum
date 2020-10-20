@@ -10,10 +10,14 @@ github.com/ActiveState/termtest/expect v0.5.5 h1:Yxesm4HAJsfthXpc4YnHqNZBiom/Gn6
 github.com/ActiveState/termtest/expect v0.5.5/go.mod h1:a19vpvLM0KUqNDRIJ3K1yATwvCaHuoFduMc/cCLGe7U=
 github.com/ActiveState/termtest/expect v0.5.6 h1:ECUeQ3zsuLPqGhpByYi8bR4xCWZkb9V/RiaO/plEpdk=
 github.com/ActiveState/termtest/expect v0.5.6/go.mod h1:a19vpvLM0KUqNDRIJ3K1yATwvCaHuoFduMc/cCLGe7U=
+github.com/ActiveState/termtest/expect v0.6.0 h1:JOedaIxEhsLWZ7E6QKLv/3B8BskHcsHsU/uRpXSjrQU=
+github.com/ActiveState/termtest/expect v0.6.0/go.mod h1:64QuJvMtMu7+H5U+5TSMBxAs1FAaLvRIyN7WPOICido=
 github.com/ActiveState/termtest/xpty v0.5.3 h1:N++FPVKbrWp5PjSBxi35ufOiPC0IhGyvjkoOqeVGvfM=
 github.com/ActiveState/termtest/xpty v0.5.3/go.mod h1:W6X8GbWshK/Y3zmyDCT/dhD820kPIL+4QO5dIGunrXU=
 github.com/ActiveState/termtest/xpty v0.5.5 h1:j+opYSrytcWJgAA1pzt+MfU86WeTyTA1pyjerIVRZts=
 github.com/ActiveState/termtest/xpty v0.5.5/go.mod h1:MmTm/62Ajq+D92emHq8LOu9Q+2+pkBurDLahkUP6Odg=
+github.com/ActiveState/termtest/xpty v0.6.0 h1:L9c17TDfy+ed+tY5cMOErn0n2EYG4tj8StdxHmoPok8=
+github.com/ActiveState/termtest/xpty v0.6.0/go.mod h1:MmTm/62Ajq+D92emHq8LOu9Q+2+pkBurDLahkUP6Odg=
 github.com/ActiveState/vt10x v1.2.0 h1:sqHZIyJRpUVRHivcr6fDh/6kwFdM3GfYSD+rrKuG9Tc=
 github.com/ActiveState/vt10x v1.2.0/go.mod h1:8wJKd36c9NmCfGyPyOJmkvyIMvbUPfHkfdS8zZlK19s=
 github.com/ActiveState/vt10x v1.3.1 h1:7qi8BGXUEBghzBxfXSY0J77etO+L95PZQlwD7ay2mn0=
@@ -69,6 +73,8 @@ golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1 h1:sIky/MyNRSHTrdxfsiUSS4WIA
 golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200821140526-fda516888d29 h1:mNuhGagCf3lDDm5C0376C/sxh6V7fy9WbdEu/YDNA04=
 golang.org/x/sys v0.0.0-20200821140526-fda516888d29/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20201018230417-eeed37f84f13 h1:5jaG59Zhd+8ZXe8C+lgiAGqkOaZBruqrWclLkgAww34=
+golang.org/x/sys v0.0.0-20201018230417-eeed37f84f13/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/tools v0.0.0-20190328211700-ab21143f2384/go.mod h1:LCzVGOaR6xXOjkQ3onu1FJEFr0SW1gC7cKk1uF8kGRs=
 gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0/go.mod h1:OdE7CF6DbADk7lN8LIKRzRJTTZXIjtWgA5THM5lhBAw=
