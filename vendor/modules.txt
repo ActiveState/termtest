@@ -1,6 +1,6 @@
 # github.com/ActiveState/termtest/conpty v0.5.0
 github.com/ActiveState/termtest/conpty
-# github.com/ActiveState/termtest/expect v0.6.0
+# github.com/ActiveState/termtest/expect v0.7.0
 ## explicit
 github.com/ActiveState/termtest/expect
 github.com/ActiveState/termtest/expect/internal/osutils
@@ -12,7 +12,8 @@ github.com/ActiveState/vt10x
 # github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
 github.com/Azure/go-ansiterm
 github.com/Azure/go-ansiterm/winterm
-# github.com/Netflix/go-expect v0.0.0-20200312175327-da48e75238e2
+# github.com/Netflix/go-expect v0.0.0-20201125194554-85d881c3777e
+## explicit
 github.com/Netflix/go-expect
 # github.com/creack/pty v1.1.11
 github.com/creack/pty
@@ -22,14 +23,15 @@ github.com/davecgh/go-spew/spew
 github.com/kr/pty
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/stretchr/testify v1.5.1
+# github.com/stretchr/testify v1.6.1
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
-# golang.org/x/sys v0.0.0-20201018230417-eeed37f84f13
+# golang.org/x/sys v0.0.0-20201201145000-ef89a241ccb3
+## explicit
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# gopkg.in/yaml.v2 v2.2.2
-gopkg.in/yaml.v2
+# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+gopkg.in/yaml.v3

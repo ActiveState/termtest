@@ -238,6 +238,11 @@ func (cp *ConsoleProcess) SendLine(value string) {
 	_, _ = cp.console.SendLine(value)
 }
 
+// SendOSLine sends a new line to the terminal, as if a user typed it, the newline sequence is OS aware
+func (cp *ConsoleProcess) SendOSLine(value string) {
+	_, _ = cp.console.SendOSLine(value)
+}
+
 // Send sends a string to the terminal as if a user typed it
 func (cp *ConsoleProcess) Send(value string) {
 	_, _ = cp.console.Send(value)
