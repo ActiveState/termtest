@@ -229,22 +229,22 @@ func (cp *ConsoleProcess) WaitForInput(timeout ...time.Duration) (string, error)
 		msg = "echo wait_ready_%USERPROFILE%"
 	}
 
-	cp.SendOSLine(msg)
+	cp.SendLine(msg)
 	return cp.Expect("wait_ready_"+usr.HomeDir, timeout...)
 }
 
-// SendLine sends a new line to the terminal, as if a user typed it
-func (cp *ConsoleProcess) SendLine(value string) {
+// Send sends a new line to the terminal, as if a user typed it
+func (cp *ConsoleProcess) Send(value string) {
 	_, _ = cp.console.SendLine(value)
 }
 
-// SendOSLine sends a new line to the terminal, as if a user typed it, the newline sequence is OS aware
-func (cp *ConsoleProcess) SendOSLine(value string) {
+// SendLine sends a new line to the terminal, as if a user typed it, the newline sequence is OS aware
+func (cp *ConsoleProcess) SendLine(value string) {
 	_, _ = cp.console.SendOSLine(value)
 }
 
-// Send sends a string to the terminal as if a user typed it
-func (cp *ConsoleProcess) Send(value string) {
+// SendUnterminated sends a string to the terminal as if a user typed it
+func (cp *ConsoleProcess) SendUnterminated(value string) {
 	_, _ = cp.console.Send(value)
 }
 
@@ -257,7 +257,7 @@ func (cp *ConsoleProcess) Signal(sig os.Signal) error {
 // Note: On Windows the Ctrl-C event is only reliable caught when the receiving process is
 // listening for os.Interrupt signals.
 func (cp *ConsoleProcess) SendCtrlC() {
-	cp.Send(string([]byte{0x03})) // 0x03 is ASCII character for ^C
+	cp.SendUnterminated(string([]byte{0x03})) // 0x03 is ASCII character for ^C
 }
 
 // Stop sends an interrupt signal for the tested process and fails if no process has been started yet.
