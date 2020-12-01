@@ -229,7 +229,7 @@ func (cp *ConsoleProcess) WaitForInput(timeout ...time.Duration) (string, error)
 		msg = "echo wait_ready_%USERPROFILE%"
 	}
 
-	cp.SendLine(msg)
+	cp.SendOSLine(msg)
 	return cp.Expect("wait_ready_"+usr.HomeDir, timeout...)
 }
 
