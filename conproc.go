@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	expect "github.com/ActiveState/termtest/expect"
+	"github.com/ActiveState/termtest/expect"
 	"github.com/ActiveState/termtest/internal/osutils"
 )
 
@@ -154,6 +154,11 @@ func (cp *ConsoleProcess) Close() error {
 // Executable returns the command name to be executed
 func (cp *ConsoleProcess) Executable() string {
 	return cp.cmdName
+}
+
+// Cmd returns the underlying command
+func (cp *ConsoleProcess) Cmd() *exec.Cmd {
+	return cp.cmd
 }
 
 // WorkDirectory returns the directory in which the command shall be run
