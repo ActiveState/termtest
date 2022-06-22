@@ -221,6 +221,18 @@ func (cp *ConsoleProcess) Expect(value string, timeout ...time.Duration) (string
 	return cp.console.Expect(opts...)
 }
 
+// ExpectCustom listens to the terminal output and returns once the supplied condition is satisfied or
+// a timeout occurs
+// Default timeout is 10 seconds
+func (cp *ConsoleProcess) ExpectCustom(opt expect.ExpectOpt, timeout ...time.Duration) (string, error) {
+	opts := []expect.ExpectOpt{opt}
+	if len(timeout) > 0 {
+		opts = append(opts, expect.WithTimeout(timeout[0]))
+	}
+
+	return cp.console.Expect(opts...)
+}
+
 // WaitForInput returns once a shell prompt is active on the terminal
 // Default timeout is 10 seconds
 func (cp *ConsoleProcess) WaitForInput(timeout ...time.Duration) (string, error) {
