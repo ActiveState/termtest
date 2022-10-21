@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/user"
 	"regexp"
 	"runtime"
 	"strings"
