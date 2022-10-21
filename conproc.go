@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"os/user"
 	"regexp"
 	"runtime"
 	"strings"
@@ -236,7 +235,7 @@ func (cp *ConsoleProcess) ExpectCustom(opt expect.ExpectOpt, timeout ...time.Dur
 // WaitForInput returns once a shell prompt is active on the terminal
 // Default timeout is 10 seconds
 func (cp *ConsoleProcess) WaitForInput(timeout ...time.Duration) (string, error) {
-	usr, err := user.Current()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
@@ -247,7 +246,7 @@ func (cp *ConsoleProcess) WaitForInput(timeout ...time.Duration) (string, error)
 	}
 
 	cp.SendLine(msg)
-	return cp.Expect("wait_ready_"+usr.HomeDir, timeout...)
+	return cp.Expect("wait_ready_"+homeDir, timeout...)
 }
 
 // Send sends a new line to the terminal, as if a user typed it
