@@ -6,9 +6,7 @@ import (
 	"log"
 	"os/exec"
 	"sync"
-	"time"
 
-	"github.com/ActiveState/termtest/internal/osutils"
 	"github.com/creack/pty"
 )
 
@@ -31,19 +29,13 @@ type Opts struct {
 
 var TimeoutError = errors.New("timeout")
 
-var neverGonnaHappen = time.Hour * 24 * 365 * 100
-
-type void struct{}
-
-func (v void) Write(p []byte) (n int, err error) { return len(p), nil }
-
 type SetOpt func(o *Opts) error
 
 const DefaultCols = 1000
 
 func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
 	optv := &Opts{
-		Logger: log.New(void{}, "TermTest: ", log.LstdFlags),
+		Logger: log.New(voidWriter{}, "TermTest: ", log.LstdFlags),
 		ExpectErrorHandler: func(_ *TermTest, err error) error {
 			panic(err)
 		},
@@ -126,7 +118,7 @@ func (tt *TermTest) Send(value string) error {
 
 // SendLine sends a new line to the terminal, as if a user typed it, the newline sequence is OS aware
 func (tt *TermTest) SendLine(value string) error {
-	return tt.Send(fmt.Sprintf("%s%s", value, osutils.LineSep))
+	return tt.Send(fmt.Sprintf("%s%s", value, lineSep))
 }
 
 // SendCtrlC tries to emulate what would happen in an interactive shell, when the user presses Ctrl-C

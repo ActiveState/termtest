@@ -3,7 +3,23 @@ package termtest
 import (
 	"os"
 	"os/exec"
+	"runtime"
+	"time"
 )
+
+type voidWriter struct{}
+
+func (v voidWriter) Write(p []byte) (n int, err error) { return len(p), nil }
+
+var neverGonnaHappen = time.Hour * 24 * 365 * 100
+
+var lineSep = "\n"
+
+func init() {
+	if runtime.GOOS == "windows" {
+		lineSep = "\r\n"
+	}
+}
 
 type cmdExit struct {
 	ProcessState *os.ProcessState
