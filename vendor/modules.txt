@@ -1,37 +1,26 @@
-# github.com/ActiveState/termtest/conpty v0.5.0
-github.com/ActiveState/termtest/conpty
-# github.com/ActiveState/termtest/expect v0.7.0
-## explicit
-github.com/ActiveState/termtest/expect
-github.com/ActiveState/termtest/expect/internal/osutils
-# github.com/ActiveState/termtest/xpty v0.6.0
-github.com/ActiveState/termtest/xpty
-# github.com/ActiveState/vt10x v1.3.1
-## explicit
-github.com/ActiveState/vt10x
-# github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
-github.com/Azure/go-ansiterm
-github.com/Azure/go-ansiterm/winterm
-# github.com/Netflix/go-expect v0.0.0-20201125194554-85d881c3777e
-## explicit
-github.com/Netflix/go-expect
-# github.com/creack/pty v1.1.11
+# github.com/creack/pty v1.1.11 => github.com/photostorm/pty v1.1.19-0.20221026012344-0a71ca4f0f8c
+## explicit; go 1.13
 github.com/creack/pty
-# github.com/davecgh/go-spew v1.1.0
-github.com/davecgh/go-spew/spew
-# github.com/kr/pty v1.1.8
-github.com/kr/pty
-# github.com/pmezard/go-difflib v1.0.0
-github.com/pmezard/go-difflib/difflib
-# github.com/stretchr/testify v1.6.1
+# github.com/davecgh/go-spew v1.1.1
 ## explicit
+github.com/davecgh/go-spew/spew
+# github.com/kr/text v0.2.0
+## explicit
+# github.com/pmezard/go-difflib v1.0.0
+## explicit
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.8.0
+## explicit; go 1.13
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-github.com/stretchr/testify/suite
-# golang.org/x/sys v0.0.0-20201201145000-ef89a241ccb3
-## explicit
+# go.uber.org/goleak v1.2.0
+## explicit; go 1.18
+go.uber.org/goleak
+go.uber.org/goleak/internal/stack
+# golang.org/x/sys v0.0.0-20220721230656-c6bc011c0c49
+## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
-golang.org/x/sys/unix
 golang.org/x/sys/windows
-# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+# gopkg.in/yaml.v3 v3.0.1
+## explicit
 gopkg.in/yaml.v3

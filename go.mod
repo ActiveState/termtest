@@ -1,11 +1,19 @@
 module github.com/ActiveState/termtest
 
-go 1.14
+go 1.18
 
 require (
-	github.com/ActiveState/termtest/expect v0.7.0
-	github.com/ActiveState/vt10x v1.3.1
-	github.com/Netflix/go-expect v0.0.0-20201125194554-85d881c3777e // indirect
-	github.com/stretchr/testify v1.6.1
-	golang.org/x/sys v0.0.0-20201201145000-ef89a241ccb3 // indirect
+	github.com/creack/pty v1.1.11
+	github.com/stretchr/testify v1.8.0
+	go.uber.org/goleak v1.2.0
 )
+
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/sys v0.0.0-20220721230656-c6bc011c0c49 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
+
+replace github.com/creack/pty v1.1.11 => github.com/photostorm/pty v1.1.19-0.20221026012344-0a71ca4f0f8c
