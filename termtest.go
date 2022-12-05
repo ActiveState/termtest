@@ -20,9 +20,11 @@ type TermTest struct {
 	opts           *Opts
 }
 
+type ErrorHandler func(*TermTest, error) error
+
 type Opts struct {
 	Logger             *log.Logger
-	ExpectErrorHandler func(*TermTest, error) error
+	ExpectErrorHandler ErrorHandler
 	Cols               uint16
 	Rows               uint16
 }
@@ -33,8 +35,8 @@ type SetOpt func(o *Opts) error
 
 const DefaultCols = 1000
 
-func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
-	optv := &Opts{
+func NewOpts() *Opts {
+	return &Opts{
 		Logger: log.New(voidWriter{}, "TermTest: ", log.LstdFlags),
 		ExpectErrorHandler: func(_ *TermTest, err error) error {
 			panic(err)
@@ -42,6 +44,10 @@ func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
 		Cols: DefaultCols,
 		Rows: 1,
 	}
+}
+
+func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
+	optv := NewOpts()
 	for _, setOpt := range opts {
 		if err := setOpt(optv); err != nil {
 			return nil, fmt.Errorf("could not set option: %w", err)

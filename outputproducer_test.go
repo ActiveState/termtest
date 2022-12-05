@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -79,34 +80,30 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 
 	// createConsumer helps reduce the boilerplate of creating a consumers
 	// id is used to track which consumers are still active
-	// stopAfter will cause it to send keepConsuming=false when encountering the given buffer
+	// stopAfter will cause it to send stopConsuming=true when encountering the given buffer
 	// errOn will fire an error when encountering the given buffer
 	// resultConsumerCalls is used to track consumer calls and their results
-	createConsumer := func(id string, stopAfter string, errOn string, resultConsumerCalls consumerCalls) *outputConsumer {
-		return &outputConsumer{
-			_test_id: id,
-			timeout:  time.Second,
-			consume: func(buffer string) (keepConsuming bool, err error) {
-				// Record consumer call
-				if _, ok := resultConsumerCalls[id]; !ok {
-					resultConsumerCalls[id] = []string{}
-				}
-				resultConsumerCalls[id] = append(resultConsumerCalls[id], buffer)
+	createConsumer := func(id string, stopAfter string, errOn string, resultConsumerCalls consumerCalls, opts ...SetConsOpt) *outputConsumer {
+		consumer := func(buffer string) (stopConsuming bool, err error) {
+			// Record consumer call
+			if _, ok := resultConsumerCalls[id]; !ok {
+				resultConsumerCalls[id] = []string{}
+			}
+			resultConsumerCalls[id] = append(resultConsumerCalls[id], buffer)
 
-				// Trigger error if errOn matches
-				if buffer == errOn {
-					return false, consumerError
-				}
+			// Trigger error if errOn matches
+			if buffer == errOn {
+				return true, consumerError
+			}
 
-				// Determine whether to keep consuming
-				keepConsuming = buffer != stopAfter
+			// Determine whether to keep consuming
+			stopConsuming = buffer == stopAfter
 
-				return keepConsuming, nil
-			},
-			opts:   newTestOpts(nil),
-			closed: make(chan struct{}),
-			waiter: make(chan error, 1),
+			return stopConsuming, nil
 		}
+		oc := newOutputConsumer(consumer, time.Second, opts...)
+		oc._test_id = id
+		return oc
 	}
 
 	tests := []struct {
@@ -160,6 +157,21 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 			wantAppendErrs: []error{nil, nil},
 			wantConsumerCalls: consumerCalls{
 				"Only Consumer": {"Hello", "World"},
+			},
+			wantConsumerIDs: []string{"Only Consumer"},
+		},
+		{
+			name: "Multiple appends with Full buffer consumer",
+			op:   newOutputProducer(newTestOpts(nil)),
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
+				return []*outputConsumer{
+					createConsumer("Only Consumer", "", "", resultConsumerCalls, OptSendFullBuffer()),
+				}
+			},
+			appendCalls:    []string{"Hello", "World"},
+			wantAppendErrs: []error{nil, nil},
+			wantConsumerCalls: consumerCalls{
+				"Only Consumer": {"Hello", "HelloWorld"},
 			},
 			wantConsumerIDs: []string{"Only Consumer"},
 		},
@@ -222,8 +234,13 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 			resultConsumerCalls := consumerCalls{}
 			tt.op.consumers = tt.consumers(resultConsumerCalls)
 
+			wg := &sync.WaitGroup{}
 			for _, consumer := range tt.op.consumers {
-				go consumer.Wait() // Otherwise appendBuffer will block
+				wg.Add(1)
+				go func() { // Otherwise appendBuffer will block
+					defer wg.Done()
+					consumer.Wait()
+				}()
 			}
 
 			for n, append := range tt.appendCalls {
@@ -231,6 +248,9 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 					t.Errorf("appendBuffer() error = %v, wantErr %v", err, tt.wantAppendErrs[n])
 				}
 			}
+
+			wg.Wait()
+
 			if !reflect.DeepEqual(resultConsumerCalls, tt.wantConsumerCalls) {
 				t.Errorf("resultConsumerCalls = %v, want %v", resultConsumerCalls, tt.wantConsumerCalls)
 			}

@@ -1,0 +1,78 @@
+package termtest
+
+import (
+	"fmt"
+	"os/exec"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestTermTest_ExpectCustom(t *testing.T) {
+	customErr := fmt.Errorf("custom error")
+
+	type args struct {
+		consumer consumer
+		timeout  time.Duration
+		opts     []SetConsOpt
+	}
+	tests := []struct {
+		name    string
+		tt      *TermTest
+		args    args
+		wantErr func(*testing.T, error)
+	}{
+		{
+			"Simple Hello World Match",
+			newTermTest(t, exec.Command("bash", "-c", "echo Hello World"), true),
+			args{
+				func(buffer string) (stopConsuming bool, err error) {
+					fmt.Printf("--- buffer: %s (%v)\n", buffer, strings.TrimSpace(buffer) == "Hello World")
+					return strings.TrimSpace(buffer) == "Hello World", nil
+				},
+				5 * time.Second,
+				[]SetConsOpt{},
+			},
+			func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+		},
+		/*		{
+				"No match by process end",
+				newTermTest(t, exec.Command("bash", "-c", "echo Hello World")),
+				args{
+					func(buffer string) (stopConsuming bool, err error) {
+						return false, nil
+					},
+					5 * time.Second,
+					[]SetConsOpt{},
+				},
+				func(t *testing.T, err error) {
+					want := &ExpectNotMetDueToStopError{}
+					assert.ErrorAs(t, err, &want)
+				},
+			},*/
+		{
+			"Custom error",
+			newTermTest(t, exec.Command("bash", "-c", "echo Custom Error"), false),
+			args{
+				func(buffer string) (stopConsuming bool, err error) {
+					return false, customErr
+				},
+				time.Second,
+				[]SetConsOpt{},
+			},
+			func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, customErr)
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.tt.ExpectCustom(tc.args.consumer, tc.args.timeout, tc.args.opts...)
+			tc.wantErr(t, err)
+		})
+	}
+}

@@ -24,10 +24,10 @@ func Test_OutputConsumer(t *testing.T) {
 		{
 			"Simple",
 			func(reports *[]string) *outputConsumer {
-				return newOutputConsumer(func(buffer string) (keepConsuming bool, err error) {
+				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					*reports = append(*reports, buffer)
-					return false, nil
-				}, 5*time.Second, newTestOpts(nil))
+					return true, nil
+				}, 5*time.Second, OptInherit(newTestOpts(nil)))
 			},
 			[]string{"Report"},
 			[]string{"Report"},
@@ -37,10 +37,10 @@ func Test_OutputConsumer(t *testing.T) {
 		{
 			"Multiple reports",
 			func(reports *[]string) *outputConsumer {
-				return newOutputConsumer(func(buffer string) (keepConsuming bool, err error) {
+				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					*reports = append(*reports, buffer)
-					return buffer == "Three", nil
-				}, 5*time.Second, newTestOpts(nil))
+					return buffer != "Three", nil
+				}, 5*time.Second, OptInherit(newTestOpts(nil)))
 			},
 			[]string{"One", "Two", "Three"},
 			[]string{"One", "Two", "Three"},
@@ -50,9 +50,9 @@ func Test_OutputConsumer(t *testing.T) {
 		{
 			"Consumer error",
 			func(reports *[]string) *outputConsumer {
-				return newOutputConsumer(func(buffer string) (keepConsuming bool, err error) {
-					return false, testConsumerError
-				}, 5*time.Second, newTestOpts(nil))
+				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
+					return true, testConsumerError
+				}, 5*time.Second, OptInherit(newTestOpts(nil)))
 			},
 			[]string{"Report"},
 			[]string{},
@@ -62,11 +62,11 @@ func Test_OutputConsumer(t *testing.T) {
 		{
 			"Premature close",
 			func(reports *[]string) *outputConsumer {
-				oc := newOutputConsumer(func(buffer string) (keepConsuming bool, err error) {
+				oc := newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					*reports = append(*reports, buffer)
-					return false, testConsumerError
-				}, 5*time.Second, newTestOpts(nil))
-				oc.close()
+					return true, testConsumerError
+				}, 5*time.Second, OptInherit(newTestOpts(nil)))
+				oc.Close()
 				return oc
 			},
 			[]string{"Report"},
@@ -84,7 +84,7 @@ func Test_OutputConsumer(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				for _, report := range tt.reports {
-					_, err := oc.report([]byte(report))
+					_, err := oc.Report([]byte(report))
 					assert.ErrorIs(t, err, tt.wantReportErr)
 				}
 				wg.Done()
