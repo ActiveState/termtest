@@ -48,7 +48,6 @@ func newOutputConsumer(consume consumer, timeout time.Duration, opts ...SetConsO
 		consume: consume,
 		opts:    &OutputConsumerOpts{Opts: NewOpts()},
 		waiter:  make(chan error, 1),
-		closed:  make(chan struct{}, 1),
 	}
 
 	for _, optSetter := range opts {
@@ -60,18 +59,12 @@ func newOutputConsumer(consume consumer, timeout time.Duration, opts ...SetConsO
 
 // Report will consume the given buffer and will block unless Wait() has been called
 func (e *outputConsumer) Report(buffer []byte) (stopConsuming bool, err error) {
-	if e.isClosed() {
-		return false, StoppedError
-	}
-
 	stop, err := e.consume(string(buffer))
 	if err != nil {
 		err = fmt.Errorf("meets threw error: %w", err)
 	}
 	if err != nil || stop {
-		e.opts.Logger.Printf("Closing consumer: stop: %v, err: %v", stop, err)
 		go func() {
-			e.opts.Logger.Printf("Sending err to waiter")
 			// This prevents report() from blocking in case Wait() has not been called yet
 			e.waiter <- err
 		}()
@@ -80,38 +73,20 @@ func (e *outputConsumer) Report(buffer []byte) (stopConsuming bool, err error) {
 }
 
 func (e *outputConsumer) Close() {
-	if e.isClosed() {
+	e.opts.Logger.Println("closing")
+	if isClosed(e.waiter) {
+		e.opts.Logger.Println("already closed")
 		return
 	}
-	e.opts.Logger.Println("Closing output listener")
-	defer e.opts.Logger.Println("Closed output listener")
 
-	e.opts.Logger.Printf("Premature error")
+	defer e.opts.Logger.Println("closed prematurely")
+
 	e.waiter <- StopPrematureError
-
-	e.opts.Logger.Printf("Closing channel from Close()")
-	close(e.closed)
-}
-
-func (e *outputConsumer) isClosed() (r bool) {
-	defer e.opts.Logger.Printf("isClosed: %v", r)
-	select {
-	case <-e.closed:
-		return true
-	default:
-		return false
-	}
 }
 
 func (e *outputConsumer) Wait() error {
-	e.opts.Logger.Println("Output listener started waiting")
-	defer e.opts.Logger.Println("Output listener stopped waiting")
-	defer func() {
-		if !e.isClosed() {
-			e.opts.Logger.Println("Closing channel from Wait()")
-			close(e.closed)
-		}
-	}()
+	e.opts.Logger.Println("started waiting")
+	defer e.opts.Logger.Println("stopped waiting")
 
 	select {
 	case err := <-e.waiter:

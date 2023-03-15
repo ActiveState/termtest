@@ -21,14 +21,14 @@ func Test_outputProducer_listen(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		op          *outputProducer
+		op          func(t *testing.T) *outputProducer
 		reader      io.Reader
 		wantAppends []string
 		wantErr     error
 	}{
 		{
 			"Simple",
-			newOutputProducer(newTestOpts(nil)),
+			func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			&readTester{
 				[]readTesterChunk{
 					{[]byte("One"), chunkInterval},
@@ -41,7 +41,7 @@ func Test_outputProducer_listen(t *testing.T) {
 		},
 		{
 			"Exceed Buffer Size",
-			newOutputProducer(newTestOpts(nil)),
+			func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			&readTester{
 				[]readTesterChunk{
 					{[]byte(valExceedBuff), chunkInterval},
@@ -58,7 +58,8 @@ func Test_outputProducer_listen(t *testing.T) {
 				got = append(got, string(v))
 				return nil
 			}
-			if err := tt.op.listen(tt.reader, append, producerInterval, bufferSize); !errors.Is(err, tt.wantErr) {
+			op := tt.op(t)
+			if err := op.listen(tt.reader, append, producerInterval, bufferSize); !errors.Is(err, tt.wantErr) {
 				t.Errorf("listen() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(got, tt.wantAppends) {
@@ -108,7 +109,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		op                *outputProducer
+		op                func(t *testing.T) *outputProducer
 		consumers         func(consumerCalls) []*outputConsumer
 		appendCalls       []string      // the appendBuffer calls we want to make
 		wantAppendErrs    []error       // the errors we expect from the append calls
@@ -117,7 +118,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 	}{
 		{
 			name: "Consumer called and removed",
-			op:   newOutputProducer(newTestOpts(nil)),
+			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
 				return []*outputConsumer{
 					createConsumer("Only Consumer", "Hello", "", resultConsumerCalls),
@@ -132,7 +133,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		},
 		{
 			name: "Consumer called and remained",
-			op:   newOutputProducer(newTestOpts(nil)),
+			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
 				return []*outputConsumer{
 					createConsumer("Only Consumer", "", "", resultConsumerCalls),
@@ -147,7 +148,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		},
 		{
 			name: "Multiple appends",
-			op:   newOutputProducer(newTestOpts(nil)),
+			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
 				return []*outputConsumer{
 					createConsumer("Only Consumer", "", "", resultConsumerCalls),
@@ -162,7 +163,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		},
 		{
 			name: "Multiple appends with Full buffer consumer",
-			op:   newOutputProducer(newTestOpts(nil)),
+			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
 				return []*outputConsumer{
 					createConsumer("Only Consumer", "", "", resultConsumerCalls, OptSendFullBuffer()),
@@ -177,7 +178,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		},
 		{
 			name: "Mixed Consumer Calls",
-			op:   newOutputProducer(newTestOpts(nil)),
+			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
 				return []*outputConsumer{
 					createConsumer("Removed Consumer", "Hello", "", resultConsumerCalls),
@@ -194,7 +195,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		},
 		{
 			name: "Mixed Consumer Calls with multiple appends",
-			op:   newOutputProducer(newTestOpts(nil)),
+			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
 				return []*outputConsumer{
 					createConsumer("Removed Consumer", "Two", "", resultConsumerCalls),
@@ -211,7 +212,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		},
 		{
 			name: "Consumer error",
-			op:   newOutputProducer(newTestOpts(nil)),
+			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
 				return []*outputConsumer{
 					createConsumer("Only Consumer", "", "Hello", resultConsumerCalls),
@@ -231,11 +232,12 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 				t.Fatalf("appendCalls and wantAppendErrs must be same length")
 			}
 
+			op := tt.op(t)
 			resultConsumerCalls := consumerCalls{}
-			tt.op.consumers = tt.consumers(resultConsumerCalls)
+			op.consumers = tt.consumers(resultConsumerCalls)
 
 			wg := &sync.WaitGroup{}
-			for _, consumer := range tt.op.consumers {
+			for _, consumer := range op.consumers {
 				wg.Add(1)
 				go func() { // Otherwise appendBuffer will block
 					defer wg.Done()
@@ -244,7 +246,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 			}
 
 			for n, append := range tt.appendCalls {
-				if err := tt.op.appendBuffer([]byte(append)); !errors.Is(err, tt.wantAppendErrs[n]) {
+				if err := op.appendBuffer([]byte(append)); !errors.Is(err, tt.wantAppendErrs[n]) {
 					t.Errorf("appendBuffer() error = %v, wantErr %v", err, tt.wantAppendErrs[n])
 				}
 			}
@@ -256,7 +258,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 			}
 
 			gotConsumerIDs := []string{}
-			for _, consumer := range tt.op.consumers {
+			for _, consumer := range op.consumers {
 				gotConsumerIDs = append(gotConsumerIDs, consumer._test_id)
 			}
 			if !reflect.DeepEqual(gotConsumerIDs, tt.wantConsumerIDs) {

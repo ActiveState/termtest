@@ -38,8 +38,8 @@ func (o *outputProducer) Listen(r io.Reader) error {
 }
 
 func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, interval time.Duration, size int) error {
-	o.opts.Logger.Println("outputProducer listen started")
-	defer o.opts.Logger.Println("outputProducer listen stopped")
+	o.opts.Logger.Println("listen started")
+	defer o.opts.Logger.Println("listen stopped")
 
 	// Most of the actual logic is in listenPoll, all we're doing here is looping and signaling ready after the first
 	// iteration
@@ -67,15 +67,14 @@ func (o *outputProducer) pollReader(r io.Reader, appendBuffer func([]byte) error
 	snapshot := make([]byte, size)
 	n, err := r.Read(snapshot)
 	if n > 0 {
+		o.opts.Logger.Printf("outputProducer read %d bytes from pty", n)
 		appendBuffer(snapshot[:n])
 	}
 
 	// Error doesn't necessarily mean something went wrong, we may just have reached the natural end
 	if err != nil {
 		if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
-			o.opts.Logger.Printf(
-				"Stopping reader as pty is closed or EOF reached. Buffer:\n%s\nError: %s",
-				o.Snapshot(), err.Error())
+			o.opts.Logger.Printf("closing as pty is closed or EOF reached")
 
 			// Close outputDigester
 			if err := o.Close(); err != nil {
@@ -93,13 +92,14 @@ func (o *outputProducer) pollReader(r io.Reader, appendBuffer func([]byte) error
 func (o *outputProducer) appendBuffer(value []byte) error {
 	o.snapshot = append(o.snapshot, value...)
 
-	o.opts.Logger.Println("Flushing output consumers")
-	defer o.opts.Logger.Println("Flushed output consumers")
+	o.opts.Logger.Printf("flushing %d output consumers", len(o.consumers))
+	defer o.opts.Logger.Println("flushed output consumers")
 
 	for n, consumer := range o.consumers {
 		stopConsuming, err := consumer.Report(o.snapshot[consumer.pos:])
+		o.opts.Logger.Printf("consumer reported stop: %v, err: %v", stopConsuming, err)
 		if err != nil {
-			return fmt.Errorf("expectation threw error: %w", err)
+			err = fmt.Errorf("consumer threw error: %w", err)
 		}
 
 		if !consumer.opts.SendFullBuffer {
@@ -107,6 +107,8 @@ func (o *outputProducer) appendBuffer(value []byte) error {
 		}
 
 		if stopConsuming {
+			o.opts.Logger.Printf("dropping consumer")
+
 			// Drop expectation
 			o.consumers = append(o.consumers[:n], o.consumers[n+1:]...)
 		}
@@ -116,9 +118,14 @@ func (o *outputProducer) appendBuffer(value []byte) error {
 }
 
 func (o *outputProducer) Close() error {
+	o.opts.Logger.Printf("closing")
+
 	if isClosed(o.closed) {
+		o.opts.Logger.Printf("already closed")
 		return nil
 	}
+
+	defer o.opts.Logger.Printf("closed")
 
 	o.flush <- struct{}{}
 
@@ -130,6 +137,8 @@ func (o *outputProducer) Close() error {
 }
 
 func (o *outputProducer) addConsumer(consume consumer, timeout time.Duration, opts ...SetConsOpt) *outputConsumer {
+	o.opts.Logger.Printf("adding consumer with timeout %s", timeout)
+
 	opts = append(opts, OptInherit(o.opts))
 	listener := newOutputConsumer(consume, timeout, opts...)
 	listener.pos = len(o.snapshot)

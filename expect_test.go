@@ -20,13 +20,15 @@ func TestTermTest_ExpectCustom(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		tt      *TermTest
+		tt      func(t *testing.T) *TermTest
 		args    args
 		wantErr func(*testing.T, error)
 	}{
 		{
 			"Simple Hello World Match",
-			newTermTest(t, exec.Command("bash", "-c", "echo Hello World"), true),
+			func(t *testing.T) *TermTest {
+				return newTermTest(t, exec.Command("bash", "-c", "echo Hello World"), true)
+			},
 			args{
 				func(buffer string) (stopConsuming bool, err error) {
 					fmt.Printf("--- buffer: %s (%v)\n", buffer, strings.TrimSpace(buffer) == "Hello World")
@@ -39,27 +41,32 @@ func TestTermTest_ExpectCustom(t *testing.T) {
 				assert.NoError(t, err)
 			},
 		},
-		/*		{
-				"No match by process end",
-				newTermTest(t, exec.Command("bash", "-c", "echo Hello World")),
-				args{
-					func(buffer string) (stopConsuming bool, err error) {
-						return false, nil
-					},
-					5 * time.Second,
-					[]SetConsOpt{},
-				},
-				func(t *testing.T, err error) {
-					want := &ExpectNotMetDueToStopError{}
-					assert.ErrorAs(t, err, &want)
-				},
-			},*/
 		{
-			"Custom error",
-			newTermTest(t, exec.Command("bash", "-c", "echo Custom Error"), false),
+			"No match by process end",
+			func(t *testing.T) *TermTest {
+				return newTermTest(t, exec.Command("bash", "-c", "echo Hello World"), true)
+			},
 			args{
 				func(buffer string) (stopConsuming bool, err error) {
-					return false, customErr
+					return false, nil
+				},
+				5 * time.Second,
+				[]SetConsOpt{},
+			},
+			func(t *testing.T, err error) {
+				want := &ExpectNotMetDueToStopError{}
+				assert.ErrorAs(t, err, &want)
+			},
+		},
+		{
+			"Custom error",
+			func(t *testing.T) *TermTest {
+				return newTermTest(t, exec.Command("bash", "-c", "echo Custom Error"), true)
+			},
+			args{
+				func(buffer string) (stopConsuming bool, err error) {
+					fmt.Printf("--- Returning customErr\n")
+					return true, customErr
 				},
 				time.Second,
 				[]SetConsOpt{},
@@ -71,7 +78,8 @@ func TestTermTest_ExpectCustom(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.tt.ExpectCustom(tc.args.consumer, tc.args.timeout, tc.args.opts...)
+			tt := tc.tt(t)
+			err := tt.ExpectCustom(tc.args.consumer, tc.args.timeout, tc.args.opts...)
 			tc.wantErr(t, err)
 		})
 	}

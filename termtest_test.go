@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -15,11 +16,11 @@ import (
 	"go.uber.org/goleak"
 )
 
-func newTestOpts(o *Opts) *Opts {
+func newTestOpts(o *Opts, t *testing.T) *Opts {
 	if o == nil {
 		o = &Opts{}
 	}
-	o.Logger = log.New(os.Stderr, "TermTest: ", log.LstdFlags|log.Lmicroseconds)
+	o.Logger = log.New(os.Stderr, filepath.Base(t.Name())+": ", log.Ltime|log.Lmicroseconds|log.Lshortfile)
 	o.ExpectErrorHandler = func(t *TermTest, err error) error {
 		return fmt.Errorf("Error encountered: %w\nSnapshot: %s", err, t.Snapshot())
 		return err
@@ -29,7 +30,7 @@ func newTestOpts(o *Opts) *Opts {
 
 func newTermTest(t *testing.T, cmd *exec.Cmd, logging bool) *TermTest {
 	tt, err := New(cmd, func(o *Opts) error {
-		o = newTestOpts(o)
+		o = newTestOpts(o, t)
 		if !logging {
 			o.Logger = log.New(voidWriter{}, "TermTest: ", log.LstdFlags)
 		}

@@ -37,7 +37,7 @@ const DefaultCols = 1000
 
 func NewOpts() *Opts {
 	return &Opts{
-		Logger: log.New(voidWriter{}, "TermTest: ", log.LstdFlags),
+		Logger: log.New(voidWriter{}, "TermTest: ", log.LstdFlags|log.Lshortfile),
 		ExpectErrorHandler: func(_ *TermTest, err error) error {
 			panic(err)
 		},
@@ -54,33 +54,56 @@ func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
 		}
 	}
 
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: optv.Cols, Rows: optv.Rows})
-	if err != nil {
-		return nil, fmt.Errorf("could not start pty: %w", err)
-	}
-
 	t := &TermTest{
 		cmd:            cmd,
-		ptmx:           ptmx,
 		outputDigester: newOutputProducer(optv),
 		closed:         make(chan struct{}),
 		listening:      false,
 		opts:           optv,
 	}
 
+	return t, nil
+}
+
+func (tt *TermTest) ensureStarted() error {
+	if tt.ptmx != nil {
+		return nil
+	}
+
+	err := tt.Start()
+	if err != nil {
+		return fmt.Errorf("could not start: %w", err)
+	}
+
+	return nil
+}
+
+func (tt *TermTest) Start() error {
+	if tt.ptmx != nil {
+		return fmt.Errorf("already started")
+	}
+
+	ptmx, err := pty.StartWithSize(tt.cmd, &pty.Winsize{Cols: tt.opts.Cols, Rows: tt.opts.Rows})
+	if err != nil {
+		return fmt.Errorf("could not start pty: %w", err)
+	}
+
+	tt.ptmx = ptmx
+
 	// Start listening for output
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		wg.Done()
-		err := t.outputDigester.Listen(t.ptmx)
+		err := tt.outputDigester.Listen(tt.ptmx)
 		if err != nil {
-			t.opts.Logger.Printf("Error while listening: %s", err)
+			tt.opts.Logger.Printf("error while listening: %s", err)
+			// todo: Find a way to bubble up this error
 		}
 	}()
 	wg.Wait()
 
-	return t, nil
+	return nil
 }
 
 // Close cleans up all the resources allocated by the TermTest
@@ -113,9 +136,12 @@ func (tt *TermTest) Snapshot() string {
 }
 
 // Send sends a new line to the terminal, as if a user typed it
-func (tt *TermTest) Send(value string) error {
+func (tt *TermTest) Send(value string) (rerr error) {
 	if isClosed(tt.closed) {
 		return tt.opts.ExpectErrorHandler(tt, fmt.Errorf("termtest has already been closed"))
+	}
+	if err := tt.ensureStarted(); err != nil {
+		return err
 	}
 	tt.opts.Logger.Printf("Sending: %s", value)
 	_, err := tt.ptmx.Write([]byte(value))
@@ -123,7 +149,7 @@ func (tt *TermTest) Send(value string) error {
 }
 
 // SendLine sends a new line to the terminal, as if a user typed it, the newline sequence is OS aware
-func (tt *TermTest) SendLine(value string) error {
+func (tt *TermTest) SendLine(value string) (rerr error) {
 	return tt.Send(fmt.Sprintf("%s%s", value, lineSep))
 }
 

@@ -27,7 +27,7 @@ func Test_OutputConsumer(t *testing.T) {
 				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					*reports = append(*reports, buffer)
 					return true, nil
-				}, 5*time.Second, OptInherit(newTestOpts(nil)))
+				}, 5*time.Second, OptInherit(newTestOpts(nil, t)))
 			},
 			[]string{"Report"},
 			[]string{"Report"},
@@ -40,7 +40,7 @@ func Test_OutputConsumer(t *testing.T) {
 				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					*reports = append(*reports, buffer)
 					return buffer != "Three", nil
-				}, 5*time.Second, OptInherit(newTestOpts(nil)))
+				}, 5*time.Second, OptInherit(newTestOpts(nil, t)))
 			},
 			[]string{"One", "Two", "Three"},
 			[]string{"One", "Two", "Three"},
@@ -52,7 +52,7 @@ func Test_OutputConsumer(t *testing.T) {
 			func(reports *[]string) *outputConsumer {
 				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					return true, testConsumerError
-				}, 5*time.Second, OptInherit(newTestOpts(nil)))
+				}, 5*time.Second, OptInherit(newTestOpts(nil, t)))
 			},
 			[]string{"Report"},
 			[]string{},
@@ -65,7 +65,7 @@ func Test_OutputConsumer(t *testing.T) {
 				oc := newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					*reports = append(*reports, buffer)
 					return true, testConsumerError
-				}, 5*time.Second, OptInherit(newTestOpts(nil)))
+				}, 5*time.Second, OptInherit(newTestOpts(nil, t)))
 				oc.Close()
 				return oc
 			},

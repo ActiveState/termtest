@@ -22,7 +22,7 @@ func (e *ExpectNotMetDueToStopError) Unwrap() error {
 	return e.err
 }
 
-func errorHandler(tt *TermTest, rerr *error) {
+func (tt *TermTest) expectErrorHandler(rerr *error) {
 	err := *rerr
 	if err == nil {
 		return
@@ -39,8 +39,12 @@ func errorHandler(tt *TermTest, rerr *error) {
 }
 
 func (tt *TermTest) ExpectCustom(consumer consumer, timeout time.Duration, opts ...SetConsOpt) (rerr error) {
-	defer errorHandler(tt, &rerr)
-	return tt.outputDigester.addConsumer(consumer, timeout, opts...).Wait()
+	defer tt.expectErrorHandler(&rerr)
+	cons := tt.outputDigester.addConsumer(consumer, timeout, opts...)
+	if err := tt.ensureStarted(); err != nil {
+		return err
+	}
+	return cons.Wait()
 }
 
 // Expect listens to the terminal output and returns once the expected value is found or a timeout occurs
@@ -57,6 +61,10 @@ func expect(value, buffer string) (bool, error) {
 // ExpectRe listens to the terminal output and returns once the expected regular expression is matched or a timeout occurs
 // Default timeout is 10 seconds
 func (tt *TermTest) ExpectRe(rx regexp.Regexp, timeout ...time.Duration) error {
+	if err := tt.Start(); err != nil {
+		return fmt.Errorf("could not start TermTest: %w", err)
+	}
+
 	return tt.ExpectCustom(func(buffer string) (bool, error) {
 		return expectRe(rx, buffer)
 	}, getIndex(timeout, 0, 10*time.Second), OptSendFullBuffer())
@@ -98,7 +106,11 @@ func (tt *TermTest) ExpectExit(timeout ...time.Duration) error {
 }
 
 func (tt *TermTest) expectExitCode(exitCode int, match bool, timeout ...time.Duration) (rerr error) {
-	defer errorHandler(tt, &rerr)
+	defer tt.expectErrorHandler(&rerr)
+
+	if err := tt.ensureStarted(); err != nil {
+		return err
+	}
 
 	timeoutV := getIndex(timeout, 0, 10*time.Second)
 	timeoutC := time.After(timeoutV)
