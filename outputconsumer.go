@@ -6,7 +6,6 @@ import (
 )
 
 var StopPrematureError = fmt.Errorf("stop called while consumer was still active")
-var StoppedError = fmt.Errorf("consumer has stopped")
 
 type consumer func(buffer string) (stopConsuming bool, err error)
 
@@ -14,7 +13,6 @@ type outputConsumer struct {
 	_test_id string // for testing purposes only, not used for non-testing logic
 	timeout  time.Duration
 	consume  consumer
-	closed   chan struct{}
 	waiter   chan error
 	pos      int // Todo: Find a way to move the responsibility of this entirely into outputconsumer
 	opts     *OutputConsumerOpts
@@ -57,34 +55,28 @@ func newOutputConsumer(consume consumer, timeout time.Duration, opts ...SetConsO
 	return oc
 }
 
-// Report will consume the given buffer and will block unless Wait() has been called
+// Report will consume the given buffer and will block unless wait() has been called
 func (e *outputConsumer) Report(buffer []byte) (stopConsuming bool, err error) {
 	stop, err := e.consume(string(buffer))
 	if err != nil {
 		err = fmt.Errorf("meets threw error: %w", err)
 	}
 	if err != nil || stop {
+		// This prevents report() from blocking in case Wait() has not been called yet
 		go func() {
-			// This prevents report() from blocking in case Wait() has not been called yet
 			e.waiter <- err
 		}()
 	}
 	return stop, err
 }
 
-func (e *outputConsumer) Close() {
-	e.opts.Logger.Println("closing")
-	if isClosed(e.waiter) {
-		e.opts.Logger.Println("already closed")
-		return
-	}
-
-	defer e.opts.Logger.Println("closed prematurely")
-
+// close is by definition an error condition, because it would only be called if the consumer is still active
+// under normal conditions the consumer is dropped when the wait is satisfied
+func (e *outputConsumer) close() {
 	e.waiter <- StopPrematureError
 }
 
-func (e *outputConsumer) Wait() error {
+func (e *outputConsumer) wait() error {
 	e.opts.Logger.Println("started waiting")
 	defer e.opts.Logger.Println("stopped waiting")
 

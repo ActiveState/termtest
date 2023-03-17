@@ -59,21 +59,6 @@ func Test_OutputConsumer(t *testing.T) {
 			testConsumerError,
 			testConsumerError,
 		},
-		{
-			"Premature close",
-			func(reports *[]string) *outputConsumer {
-				oc := newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
-					*reports = append(*reports, buffer)
-					return true, testConsumerError
-				}, 5*time.Second, OptInherit(newTestOpts(nil, t)))
-				oc.Close()
-				return oc
-			},
-			[]string{"Report"},
-			[]string{},
-			StoppedError,
-			StopPrematureError,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -90,7 +75,7 @@ func Test_OutputConsumer(t *testing.T) {
 				wg.Done()
 			}()
 
-			err := oc.Wait()
+			err := oc.wait()
 			assert.ErrorIs(t, err, tt.wantWaitErr)
 
 			wg.Wait()

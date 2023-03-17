@@ -1,10 +1,8 @@
 package termtest
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"time"
 )
 
@@ -46,12 +44,14 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 	for {
 		select {
 		case <-o.closed:
-			return fmt.Errorf("outputProducer closed before EOF was reached")
+			if len(o.consumers) > 0 {
+				return fmt.Errorf("outputProducer closed before consumers were satisfied")
+			}
+			return nil
 		case <-o.flush:
 			if len(o.consumers) == 0 {
 				return nil
 			}
-			time.Sleep(time.Second)
 			if err := o.pollReader(r, appendBuffer, size); err != nil {
 				return err
 			}
@@ -72,18 +72,9 @@ func (o *outputProducer) pollReader(r io.Reader, appendBuffer func([]byte) error
 	}
 
 	// Error doesn't necessarily mean something went wrong, we may just have reached the natural end
+	// It's the consumers job to check for EOF errors and ignore them if they're expected
 	if err != nil {
-		if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
-			o.opts.Logger.Printf("closing as pty is closed or EOF reached")
-
-			// Close outputDigester
-			if err := o.Close(); err != nil {
-				return fmt.Errorf("Failed to close output reader: %w", err)
-			}
-
-			return nil
-		}
-		return fmt.Errorf("could not read pty output: %v", err)
+		return fmt.Errorf("could not read pty output: %w", err)
 	}
 
 	return nil
@@ -99,7 +90,7 @@ func (o *outputProducer) appendBuffer(value []byte) error {
 		stopConsuming, err := consumer.Report(o.snapshot[consumer.pos:])
 		o.opts.Logger.Printf("consumer reported stop: %v, err: %v", stopConsuming, err)
 		if err != nil {
-			err = fmt.Errorf("consumer threw error: %w", err)
+			return fmt.Errorf("consumer threw error: %w", err)
 		}
 
 		if !consumer.opts.SendFullBuffer {
@@ -117,33 +108,32 @@ func (o *outputProducer) appendBuffer(value []byte) error {
 	return nil
 }
 
-func (o *outputProducer) Close() error {
+func (o *outputProducer) close() error {
 	o.opts.Logger.Printf("closing")
-
-	if isClosed(o.closed) {
-		o.opts.Logger.Printf("already closed")
-		return nil
-	}
-
 	defer o.opts.Logger.Printf("closed")
 
 	o.flush <- struct{}{}
 
 	for _, listener := range o.consumers {
-		listener.Close()
+		// This will cause the consumer to return an error because if used correctly there shouldn't be any running
+		// consumers at this time
+		listener.close()
 	}
+
 	close(o.closed)
+
 	return nil
 }
 
-func (o *outputProducer) addConsumer(consume consumer, timeout time.Duration, opts ...SetConsOpt) *outputConsumer {
+func (o *outputProducer) addConsumer(consume consumer, timeout time.Duration, opts ...SetConsOpt) (*outputConsumer, error) {
 	o.opts.Logger.Printf("adding consumer with timeout %s", timeout)
 
 	opts = append(opts, OptInherit(o.opts))
 	listener := newOutputConsumer(consume, timeout, opts...)
 	listener.pos = len(o.snapshot)
 	o.consumers = append(o.consumers, listener)
-	return listener
+
+	return listener, nil
 }
 
 func (o *outputProducer) Snapshot() []byte {

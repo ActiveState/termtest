@@ -59,7 +59,11 @@ func Test_outputProducer_listen(t *testing.T) {
 				return nil
 			}
 			op := tt.op(t)
-			if err := op.listen(tt.reader, append, producerInterval, bufferSize); !errors.Is(err, tt.wantErr) {
+			err := op.listen(tt.reader, append, producerInterval, bufferSize)
+			if errors.Is(err, io.EOF) {
+				err = nil
+			}
+			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("listen() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !reflect.DeepEqual(got, tt.wantAppends) {
@@ -241,7 +245,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 				wg.Add(1)
 				go func() { // Otherwise appendBuffer will block
 					defer wg.Done()
-					consumer.Wait()
+					consumer.wait()
 				}()
 			}
 

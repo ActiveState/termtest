@@ -40,53 +40,51 @@ func newTermTest(t *testing.T, cmd *exec.Cmd, logging bool) *TermTest {
 	return tt
 }
 
-func TestTermTest_Close(t *testing.T) {
+func Test_Close(t *testing.T) {
 	defer goleak.VerifyNone(t)
-
-	wgExpectRunning := &sync.WaitGroup{}
-	wgExpectRunning.Add(1)
 
 	tests := []struct {
 		name     string
-		termtest func(t *testing.T) *TermTest
-		wg       *sync.WaitGroup
+		termtest func(t *testing.T, wg *sync.WaitGroup) *TermTest
 		wantErr  bool
 	}{
 		{
 			"Simple",
-			func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash", "--version"), true) },
-			nil,
+			func(t *testing.T, wg *sync.WaitGroup) *TermTest {
+				defer wg.Done()
+				return newTermTest(t, exec.Command("bash", "--version"), true)
+			},
 			false,
 		},
 		{
-			"Expect Running",
-			func(t *testing.T) *TermTest {
+			"Late Expect",
+			func(t *testing.T, wg *sync.WaitGroup) *TermTest {
 				tt := newTermTest(t, exec.Command("bash", "--version"), true)
 				go func() {
-					defer wgExpectRunning.Done()
-					err := tt.Expect("Too late")
-					require.ErrorIs(t, err, StopPrematureError)
+					defer wg.Done()
+					time.Sleep(time.Second) // Ensure that Close is called before we run the Expect
+					err := tt.Expect("Too late", time.Millisecond)
+					require.ErrorIs(t, err, TimeoutError)
 				}()
 				return tt
 			},
-			wgExpectRunning,
 			false,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			tt := tc.termtest(t)
+			wg := &sync.WaitGroup{}
+			wg.Add(1)
+			tt := tc.termtest(t, wg)
 			if err := tt.Close(); (err != nil) != tc.wantErr {
 				t.Errorf("Close() error = %v, wantErr %v", err, tc.wantErr)
 			}
-			if tc.wg != nil {
-				tc.wg.Wait()
-			}
+			wg.Wait()
 		})
 	}
 }
 
-func TestTermTest_ExpectExitCode(t *testing.T) {
+func Test_ExpectExitCode(t *testing.T) {
 	tests := []struct {
 		name      string
 		termtest  func(t *testing.T) *TermTest
@@ -138,7 +136,7 @@ func TestTermTest_ExpectExitCode(t *testing.T) {
 	}
 }
 
-func TestTermTest_SendAndSnapshot(t *testing.T) {
+func Test_SendAndSnapshot(t *testing.T) {
 	// Todo: Figure out why we are leaking goroutines here (ONLY when running the full test suite, not when running individual test)
 	// defer goleak.VerifyNone(t)
 

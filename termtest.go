@@ -3,6 +3,8 @@ package termtest
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"log"
 	"os/exec"
 	"sync"
@@ -62,23 +64,14 @@ func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
 		opts:           optv,
 	}
 
+	if err := t.start(); err != nil {
+		return nil, fmt.Errorf("could not start: %w", err)
+	}
+
 	return t, nil
 }
 
-func (tt *TermTest) ensureStarted() error {
-	if tt.ptmx != nil {
-		return nil
-	}
-
-	err := tt.Start()
-	if err != nil {
-		return fmt.Errorf("could not start: %w", err)
-	}
-
-	return nil
-}
-
-func (tt *TermTest) Start() error {
+func (tt *TermTest) start() error {
 	if tt.ptmx != nil {
 		return fmt.Errorf("already started")
 	}
@@ -97,8 +90,10 @@ func (tt *TermTest) Start() error {
 		wg.Done()
 		err := tt.outputDigester.Listen(tt.ptmx)
 		if err != nil {
-			tt.opts.Logger.Printf("error while listening: %s", err)
-			// todo: Find a way to bubble up this error
+			if !errors.Is(err, fs.ErrClosed) && !errors.Is(err, io.EOF) {
+				tt.opts.Logger.Printf("error while listening: %s", err)
+				// todo: Find a way to bubble up this error
+			}
 		}
 	}()
 	wg.Wait()
@@ -120,6 +115,10 @@ func (tt *TermTest) Close() error {
 	}
 	log.Println("Closed pty")
 
+	if err := tt.outputDigester.close(); err != nil {
+		return fmt.Errorf("failed to close output digester: %w", err)
+	}
+
 	close(tt.closed)
 
 	return nil
@@ -137,12 +136,6 @@ func (tt *TermTest) Snapshot() string {
 
 // Send sends a new line to the terminal, as if a user typed it
 func (tt *TermTest) Send(value string) (rerr error) {
-	if isClosed(tt.closed) {
-		return tt.opts.ExpectErrorHandler(tt, fmt.Errorf("termtest has already been closed"))
-	}
-	if err := tt.ensureStarted(); err != nil {
-		return err
-	}
 	tt.opts.Logger.Printf("Sending: %s", value)
 	_, err := tt.ptmx.Write([]byte(value))
 	return err

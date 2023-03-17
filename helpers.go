@@ -43,13 +43,3 @@ func getIndex[T any](v []T, i int, fallback T) T {
 	}
 	return v[i]
 }
-
-// isClosed checks if the given channel is closed
-func isClosed[T any](c chan T) bool {
-	select {
-	case <-c:
-		return true
-	default:
-		return false
-	}
-}

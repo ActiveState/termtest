@@ -50,7 +50,7 @@ func test() error {
 					fmt.Printf("Process state: %#v | %#v", ps.ExitCode(), c.ProcessState)
 					return nil
 				}
-				return fmt.Errorf("could not read pty output: %v", err)
+				return fmt.Errorf("could not read pty output: %w", err)
 			}
 		}
 	}

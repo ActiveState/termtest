@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTermTest_ExpectCustom(t *testing.T) {
+func Test_ExpectCustom(t *testing.T) {
 	customErr := fmt.Errorf("custom error")
 
 	type args struct {
@@ -50,12 +50,11 @@ func TestTermTest_ExpectCustom(t *testing.T) {
 				func(buffer string) (stopConsuming bool, err error) {
 					return false, nil
 				},
-				5 * time.Second,
+				time.Second,
 				[]SetConsOpt{},
 			},
 			func(t *testing.T, err error) {
-				want := &ExpectNotMetDueToStopError{}
-				assert.ErrorAs(t, err, &want)
+				assert.ErrorIs(t, err, TimeoutError)
 			},
 		},
 		{
