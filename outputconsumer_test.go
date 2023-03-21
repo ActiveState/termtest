@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -27,7 +26,7 @@ func Test_OutputConsumer(t *testing.T) {
 				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					*reports = append(*reports, buffer)
 					return true, nil
-				}, 5*time.Second, OptInherit(newTestOpts(nil, t)))
+				}, OptConsInherit(newTestOpts(nil, t)))
 			},
 			[]string{"Report"},
 			[]string{"Report"},
@@ -40,7 +39,7 @@ func Test_OutputConsumer(t *testing.T) {
 				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					*reports = append(*reports, buffer)
 					return buffer != "Three", nil
-				}, 5*time.Second, OptInherit(newTestOpts(nil, t)))
+				}, OptConsInherit(newTestOpts(nil, t)))
 			},
 			[]string{"One", "Two", "Three"},
 			[]string{"One", "Two", "Three"},
@@ -52,7 +51,7 @@ func Test_OutputConsumer(t *testing.T) {
 			func(reports *[]string) *outputConsumer {
 				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
 					return true, testConsumerError
-				}, 5*time.Second, OptInherit(newTestOpts(nil, t)))
+				}, OptConsInherit(newTestOpts(nil, t)))
 			},
 			[]string{"Report"},
 			[]string{},

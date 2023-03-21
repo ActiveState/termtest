@@ -22,7 +22,62 @@ func (e *ExpectNotMetDueToStopError) Unwrap() error {
 	return e.err
 }
 
-func (tt *TermTest) expectErrorHandler(rerr *error) {
+type ExpectOpts struct {
+	ExpectTimeout bool
+	Timeout       time.Duration
+	ErrorHandler  ErrorHandler
+
+	// Sends the full buffer each time, with the latest data appended to the end.
+	// This is the full buffer as of the point in time that the consumer started listening.
+	SendFullBuffer bool
+}
+
+func NewExpectOpts(opts ...SetExpectOpt) (*ExpectOpts, error) {
+	o := &ExpectOpts{}
+	for _, opt := range opts {
+		if err := opt(o); err != nil {
+			return nil, err
+		}
+	}
+	return o, nil
+}
+
+func (o *ExpectOpts) ToConsumerOpts() []SetConsOpt {
+	var consOpts []SetConsOpt
+	if o.SendFullBuffer {
+		consOpts = append(consOpts, OptConsSendFullBuffer())
+	}
+	if o.Timeout > 0 {
+		consOpts = append(consOpts)
+	}
+
+	return consOpts
+}
+
+type SetExpectOpt func(o *ExpectOpts) error
+
+func SetTimeout(timeout time.Duration) SetExpectOpt {
+	return func(o *ExpectOpts) error {
+		o.Timeout = timeout
+		return nil
+	}
+}
+
+func SetSendFullBuffer() SetExpectOpt {
+	return func(o *ExpectOpts) error {
+		o.SendFullBuffer = true
+		return nil
+	}
+}
+
+func SetErrorHandler(handler ErrorHandler) SetExpectOpt {
+	return func(o *ExpectOpts) error {
+		o.ErrorHandler = handler
+		return nil
+	}
+}
+
+func (tt *TermTest) expectErrorHandler(rerr *error, opts *ExpectOpts) {
 	err := *rerr
 	if err == nil {
 		return
@@ -34,13 +89,23 @@ func (tt *TermTest) expectErrorHandler(rerr *error) {
 		err = &ExpectNotMetDueToStopError{err}
 	}
 
-	*rerr = tt.opts.ExpectErrorHandler(tt, err)
+	errorHandler := tt.opts.ExpectErrorHandler
+	if opts.ErrorHandler != nil {
+		errorHandler = opts.ErrorHandler
+	}
+
+	*rerr = errorHandler(tt, err)
 	return
 }
 
-func (tt *TermTest) ExpectCustom(consumer consumer, timeout time.Duration, opts ...SetConsOpt) (rerr error) {
-	defer tt.expectErrorHandler(&rerr)
-	cons, err := tt.outputDigester.addConsumer(consumer, timeout, opts...)
+func (tt *TermTest) ExpectCustom(consumer consumer, opts ...SetExpectOpt) (rerr error) {
+	expectOpts, err := NewExpectOpts(opts...)
+	defer tt.expectErrorHandler(&rerr, expectOpts)
+	if err != nil {
+		return fmt.Errorf("could not create expect options: %w", err)
+	}
+
+	cons, err := tt.outputProducer.addConsumer(consumer, expectOpts.ToConsumerOpts()...)
 	if err != nil {
 		return fmt.Errorf("could not add consumer: %w", err)
 	}
@@ -48,10 +113,10 @@ func (tt *TermTest) ExpectCustom(consumer consumer, timeout time.Duration, opts 
 }
 
 // Expect listens to the terminal output and returns once the expected value is found or a timeout occurs
-func (tt *TermTest) Expect(value string, timeout ...time.Duration) error {
+func (tt *TermTest) Expect(value string, opts ...SetExpectOpt) error {
 	return tt.ExpectCustom(func(buffer string) (bool, error) {
 		return expect(value, buffer)
-	}, getIndex(timeout, 0, 10*time.Second), OptSendFullBuffer())
+	}, append([]SetExpectOpt{SetSendFullBuffer()}, opts...)...)
 }
 
 func expect(value, buffer string) (bool, error) {
@@ -60,10 +125,10 @@ func expect(value, buffer string) (bool, error) {
 
 // ExpectRe listens to the terminal output and returns once the expected regular expression is matched or a timeout occurs
 // Default timeout is 10 seconds
-func (tt *TermTest) ExpectRe(rx regexp.Regexp, timeout ...time.Duration) error {
+func (tt *TermTest) ExpectRe(rx regexp.Regexp, opts ...SetExpectOpt) error {
 	return tt.ExpectCustom(func(buffer string) (bool, error) {
 		return expectRe(rx, buffer)
-	}, getIndex(timeout, 0, 10*time.Second), OptSendFullBuffer())
+	}, append([]SetExpectOpt{SetSendFullBuffer()}, opts...)...)
 }
 
 func expectRe(rx regexp.Regexp, buffer string) (bool, error) {
@@ -71,7 +136,7 @@ func expectRe(rx regexp.Regexp, buffer string) (bool, error) {
 }
 
 // ExpectInput returns once a shell prompt is active on the terminal
-func (tt *TermTest) ExpectInput(timeout ...time.Duration) error {
+func (tt *TermTest) ExpectInput(opts ...SetExpectOpt) error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("could not get user home directory: %w", err)
@@ -82,33 +147,41 @@ func (tt *TermTest) ExpectInput(timeout ...time.Duration) error {
 		msg = "echo wait_ready_%USERPROFILE%"
 	}
 
-	tt.SendLine(msg)
-	return tt.Expect("wait_ready_"+homeDir, timeout...)
+	if err := tt.SendLine(msg); err != nil {
+		return fmt.Errorf("could not send line to terminal: %w", err)
+	}
+	return tt.Expect("wait_ready_"+homeDir, opts...)
 }
 
 // ExpectExitCode waits for the program under test to terminate, and checks that the returned exit code meets expectations
-func (tt *TermTest) ExpectExitCode(exitCode int, timeout ...time.Duration) error {
-	return tt.expectExitCode(exitCode, true, timeout...)
+func (tt *TermTest) ExpectExitCode(exitCode int, opts ...SetExpectOpt) error {
+	return tt.expectExitCode(exitCode, true, opts...)
 }
 
 // ExpectNotExitCode waits for the program under test to terminate, and checks that the returned exit code is not the value provide
-func (tt *TermTest) ExpectNotExitCode(exitCode int, timeout ...time.Duration) error {
-	return tt.expectExitCode(exitCode, false, timeout...)
+func (tt *TermTest) ExpectNotExitCode(exitCode int, opts ...SetExpectOpt) error {
+	return tt.expectExitCode(exitCode, false, opts...)
 }
 
 // ExpectExit waits for the program under test to terminate, not caring about the exit code
-func (tt *TermTest) ExpectExit(timeout ...time.Duration) error {
-	return tt.expectExitCode(-999, false, timeout...)
+func (tt *TermTest) ExpectExit(opts ...SetExpectOpt) error {
+	return tt.expectExitCode(-999, false, opts...)
 }
 
-func (tt *TermTest) expectExitCode(exitCode int, match bool, timeout ...time.Duration) (rerr error) {
-	defer tt.expectErrorHandler(&rerr)
-	timeoutV := getIndex(timeout, 0, 10*time.Second)
+func (tt *TermTest) expectExitCode(exitCode int, match bool, opts ...SetExpectOpt) (rerr error) {
+	expectOpts, err := NewExpectOpts(opts...)
+	defer tt.expectErrorHandler(&rerr, expectOpts)
+	if err != nil {
+		return fmt.Errorf("could not create expect options: %w", err)
+	}
+
+	timeoutV := 5 * time.Second
+	if expectOpts.Timeout > 0 {
+		timeoutV = expectOpts.Timeout
+	}
 	timeoutC := time.After(timeoutV)
 	for {
 		select {
-		case <-tt.closed:
-			return fmt.Errorf("TermTest closed before ExpectExitCode was called")
 		case <-timeoutC:
 			return fmt.Errorf("after %s: %w", timeoutV, TimeoutError)
 		case exit := <-waitForCmdExit(tt.cmd):

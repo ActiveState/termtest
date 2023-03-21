@@ -1,6 +1,7 @@
 package termtest
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"time"
@@ -39,11 +40,14 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 	o.opts.Logger.Println("listen started")
 	defer o.opts.Logger.Println("listen stopped")
 
-	// Most of the actual logic is in listenPoll, all we're doing here is looping and signaling ready after the first
+	br := bufio.NewReader(r)
+
+	// Most of the actual logic is in pollReader, all we're doing here is looping and signaling ready after the first
 	// iteration
 	for {
 		select {
 		case <-o.closed:
+			o.opts.Logger.Println("closed channel written to")
 			if len(o.consumers) > 0 {
 				return fmt.Errorf("outputProducer closed before consumers were satisfied")
 			}
@@ -52,11 +56,11 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 			if len(o.consumers) == 0 {
 				return nil
 			}
-			if err := o.pollReader(r, appendBuffer, size); err != nil {
+			if err := o.pollReader(br, appendBuffer, size); err != nil {
 				return err
 			}
 		case <-time.After(interval):
-			if err := o.pollReader(r, appendBuffer, size); err != nil {
+			if err := o.pollReader(br, appendBuffer, size); err != nil {
 				return err
 			}
 		}
@@ -64,11 +68,16 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 }
 
 func (o *outputProducer) pollReader(r io.Reader, appendBuffer func([]byte) error, size int) error {
+	o.opts.Logger.Println("pollReader started")
+	defer o.opts.Logger.Println("pollReader stopped")
+
 	snapshot := make([]byte, size)
 	n, err := r.Read(snapshot)
 	if n > 0 {
 		o.opts.Logger.Printf("outputProducer read %d bytes from pty", n)
-		appendBuffer(snapshot[:n])
+		if err := appendBuffer(snapshot[:n]); err != nil {
+			return fmt.Errorf("could not append buffer: %w", err)
+		}
 	}
 
 	// Error doesn't necessarily mean something went wrong, we may just have reached the natural end
@@ -109,8 +118,8 @@ func (o *outputProducer) appendBuffer(value []byte) error {
 }
 
 func (o *outputProducer) close() error {
-	o.opts.Logger.Printf("closing")
-	defer o.opts.Logger.Printf("closed")
+	o.opts.Logger.Printf("closing output producer")
+	defer o.opts.Logger.Printf("closed output producer")
 
 	o.flush <- struct{}{}
 
@@ -125,11 +134,11 @@ func (o *outputProducer) close() error {
 	return nil
 }
 
-func (o *outputProducer) addConsumer(consume consumer, timeout time.Duration, opts ...SetConsOpt) (*outputConsumer, error) {
-	o.opts.Logger.Printf("adding consumer with timeout %s", timeout)
+func (o *outputProducer) addConsumer(consume consumer, opts ...SetConsOpt) (*outputConsumer, error) {
+	o.opts.Logger.Printf("adding consumer")
 
-	opts = append(opts, OptInherit(o.opts))
-	listener := newOutputConsumer(consume, timeout, opts...)
+	opts = append(opts, OptConsInherit(o.opts))
+	listener := newOutputConsumer(consume, opts...)
 	listener.pos = len(o.snapshot)
 	o.consumers = append(o.consumers, listener)
 

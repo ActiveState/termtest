@@ -16,6 +16,10 @@ import (
 	"go.uber.org/goleak"
 )
 
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
+
 func newTestOpts(o *Opts, t *testing.T) *Opts {
 	if o == nil {
 		o = &Opts{}
@@ -41,8 +45,6 @@ func newTermTest(t *testing.T, cmd *exec.Cmd, logging bool) *TermTest {
 }
 
 func Test_Close(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
 	tests := []struct {
 		name     string
 		termtest func(t *testing.T, wg *sync.WaitGroup) *TermTest
@@ -63,7 +65,7 @@ func Test_Close(t *testing.T) {
 				go func() {
 					defer wg.Done()
 					time.Sleep(time.Second) // Ensure that Close is called before we run the Expect
-					err := tt.Expect("Too late", time.Millisecond)
+					err := tt.Expect("Too late", SetTimeout(time.Millisecond))
 					require.ErrorIs(t, err, TimeoutError)
 				}()
 				return tt
@@ -89,7 +91,6 @@ func Test_ExpectExitCode(t *testing.T) {
 		name      string
 		termtest  func(t *testing.T) *TermTest
 		send      string
-		testLeak  bool
 		expectErr error
 		expect    int
 	}{
@@ -97,7 +98,6 @@ func Test_ExpectExitCode(t *testing.T) {
 			"Simple exit 0",
 			func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true) },
 			"exit 0",
-			true,
 			nil,
 			0,
 		},
@@ -105,7 +105,6 @@ func Test_ExpectExitCode(t *testing.T) {
 			"Simple exit 100",
 			func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true) },
 			"exit 100",
-			true,
 			nil,
 			100,
 		},
@@ -113,22 +112,17 @@ func Test_ExpectExitCode(t *testing.T) {
 			"Timeout",
 			func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true) },
 			"sleep 10 && exit 0",
-			false, // This is due to cmd.Process.Wait() in waitForCmdExit not being interruptable
 			TimeoutError,
 			0,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.testLeak {
-				defer goleak.VerifyNone(t)
-			}
-
 			tt := tc.termtest(t)
 			defer tt.Close()
 
 			require.NoError(t, tt.SendLine(tc.send))
-			err := tt.ExpectExitCode(tc.expect, time.Second)
+			err := tt.ExpectExitCode(tc.expect, SetTimeout(time.Second))
 			if !errors.Is(err, tc.expectErr) {
 				t.Errorf("ExpectExitCode() error = %v, expectErr %v", err, tc.expectErr)
 			}

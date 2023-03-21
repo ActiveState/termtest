@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_ExpectCustom(t *testing.T) {
@@ -15,8 +16,7 @@ func Test_ExpectCustom(t *testing.T) {
 
 	type args struct {
 		consumer consumer
-		timeout  time.Duration
-		opts     []SetConsOpt
+		opts     []SetExpectOpt
 	}
 	tests := []struct {
 		name    string
@@ -34,8 +34,7 @@ func Test_ExpectCustom(t *testing.T) {
 					fmt.Printf("--- buffer: %s (%v)\n", buffer, strings.TrimSpace(buffer) == "Hello World")
 					return strings.TrimSpace(buffer) == "Hello World", nil
 				},
-				5 * time.Second,
-				[]SetConsOpt{},
+				[]SetExpectOpt{},
 			},
 			func(t *testing.T, err error) {
 				assert.NoError(t, err)
@@ -50,8 +49,7 @@ func Test_ExpectCustom(t *testing.T) {
 				func(buffer string) (stopConsuming bool, err error) {
 					return false, nil
 				},
-				time.Second,
-				[]SetConsOpt{},
+				[]SetExpectOpt{SetTimeout(time.Second)},
 			},
 			func(t *testing.T, err error) {
 				assert.ErrorIs(t, err, TimeoutError)
@@ -67,8 +65,7 @@ func Test_ExpectCustom(t *testing.T) {
 					fmt.Printf("--- Returning customErr\n")
 					return true, customErr
 				},
-				time.Second,
-				[]SetConsOpt{},
+				[]SetExpectOpt{SetTimeout(time.Second)},
 			},
 			func(t *testing.T, err error) {
 				assert.ErrorIs(t, err, customErr)
@@ -78,8 +75,27 @@ func Test_ExpectCustom(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tt := tc.tt(t)
-			err := tt.ExpectCustom(tc.args.consumer, tc.args.timeout, tc.args.opts...)
+			err := tt.ExpectCustom(tc.args.consumer, tc.args.opts...)
 			tc.wantErr(t, err)
 		})
 	}
+}
+
+func Test_ExpectDontMatchInput(t *testing.T) {
+	var expectError error
+	tt, err := New(exec.Command("bash"), func(o *Opts) error {
+		o.ExpectErrorHandler = func(tt *TermTest, err error) error {
+			expectError = err
+			return err
+		}
+		return nil
+	})
+	require.NoError(t, err)
+	defer tt.Close()
+
+	tt.SendLine("FOO=bar")
+	tt.ExpectInput() // Without this input will be matched
+	tt.Expect("FOO=bar", SetTimeout(100*time.Millisecond))
+
+	require.ErrorIs(t, expectError, TimeoutError, "Should have thrown an expect timeout error because FOO=bar was only sent via STDIN, snapshot: %s", tt.Snapshot())
 }

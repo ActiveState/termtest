@@ -11,7 +11,6 @@ type consumer func(buffer string) (stopConsuming bool, err error)
 
 type outputConsumer struct {
 	_test_id string // for testing purposes only, not used for non-testing logic
-	timeout  time.Duration
 	consume  consumer
 	waiter   chan error
 	pos      int // Todo: Find a way to move the responsibility of this entirely into outputconsumer
@@ -24,28 +23,37 @@ type OutputConsumerOpts struct {
 	// Sends the full buffer each time, with the latest data appended to the end.
 	// This is the full buffer as of the point in time that the consumer started listening.
 	SendFullBuffer bool
+	Timeout        time.Duration
 }
 
 type SetConsOpt func(o *OutputConsumerOpts)
 
-func OptInherit(o *Opts) func(o *OutputConsumerOpts) {
+func OptConsInherit(o *Opts) func(o *OutputConsumerOpts) {
 	return func(oco *OutputConsumerOpts) {
 		oco.Opts = o
 	}
 }
 
-func OptSendFullBuffer() func(o *OutputConsumerOpts) {
+func OptConsSendFullBuffer() func(o *OutputConsumerOpts) {
 	return func(oco *OutputConsumerOpts) {
 		oco.SendFullBuffer = true
 	}
 }
 
-func newOutputConsumer(consume consumer, timeout time.Duration, opts ...SetConsOpt) *outputConsumer {
+func OptsConsTimeout(timeout time.Duration) func(o *OutputConsumerOpts) {
+	return func(oco *OutputConsumerOpts) {
+		oco.Timeout = timeout
+	}
+}
+
+func newOutputConsumer(consume consumer, opts ...SetConsOpt) *outputConsumer {
 	oc := &outputConsumer{
-		timeout: timeout,
 		consume: consume,
-		opts:    &OutputConsumerOpts{Opts: NewOpts()},
-		waiter:  make(chan error, 1),
+		opts: &OutputConsumerOpts{
+			Opts:    NewOpts(),
+			Timeout: 5 * time.Second, // Default timeout
+		},
+		waiter: make(chan error, 1),
 	}
 
 	for _, optSetter := range opts {
@@ -83,7 +91,7 @@ func (e *outputConsumer) wait() error {
 	select {
 	case err := <-e.waiter:
 		return err
-	case <-time.After(e.timeout):
-		return fmt.Errorf("after %s: %w", e.timeout, TimeoutError)
+	case <-time.After(e.opts.Timeout):
+		return fmt.Errorf("after %s: %w", e.opts.Timeout, TimeoutError)
 	}
 }

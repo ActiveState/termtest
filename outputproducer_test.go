@@ -7,13 +7,9 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"go.uber.org/goleak"
 )
 
 func Test_outputProducer_listen(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
 	producerInterval := 100 * time.Millisecond
 	chunkInterval := producerInterval + (time.Millisecond * 10)
 	bufferSize := 10
@@ -74,8 +70,6 @@ func Test_outputProducer_listen(t *testing.T) {
 }
 
 func Test_outputProducer_appendBuffer(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
 	consumerError := errors.New("consumer error")
 
 	// consumerCalls is used to track consumer calls and their results
@@ -106,7 +100,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 
 			return stopConsuming, nil
 		}
-		oc := newOutputConsumer(consumer, time.Second, opts...)
+		oc := newOutputConsumer(consumer, append(opts, OptsConsTimeout(time.Second))...)
 		oc._test_id = id
 		return oc
 	}
@@ -170,7 +164,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
 			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
 				return []*outputConsumer{
-					createConsumer("Only Consumer", "", "", resultConsumerCalls, OptSendFullBuffer()),
+					createConsumer("Only Consumer", "", "", resultConsumerCalls, OptConsSendFullBuffer()),
 				}
 			},
 			appendCalls:    []string{"Hello", "World"},

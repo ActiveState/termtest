@@ -6,8 +6,13 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"os"
 	"os/exec"
+	"runtime/debug"
 	"sync"
+	"syscall"
+	"testing"
+	"time"
 
 	"github.com/creack/pty"
 )
@@ -16,9 +21,8 @@ import (
 type TermTest struct {
 	cmd            *exec.Cmd
 	ptmx           pty.Pty
-	outputDigester *outputProducer
-	closed         chan struct{}
-	listening      bool
+	outputProducer *outputProducer
+	listenError    chan error
 	opts           *Opts
 }
 
@@ -58,9 +62,8 @@ func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
 
 	t := &TermTest{
 		cmd:            cmd,
-		outputDigester: newOutputProducer(optv),
-		closed:         make(chan struct{}),
-		listening:      false,
+		outputProducer: newOutputProducer(optv),
+		listenError:    make(chan error, 1),
 		opts:           optv,
 	}
 
@@ -69,6 +72,41 @@ func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
 	}
 
 	return t, nil
+}
+
+func TestErrorHandler(t *testing.T) ErrorHandler {
+	return func(tt *TermTest, err error) error {
+		t.Errorf("Error encountered: %s\nSnapshot: %s\nStack: %s", unwrapErrorMessage(err), tt.Snapshot(), debug.Stack())
+		return err
+	}
+}
+
+func SilenceErrorHandler() ErrorHandler {
+	return func(_ *TermTest, err error) error {
+		return err
+	}
+}
+
+func OptVerboseLogging() SetOpt {
+	return func(o *Opts) error {
+		o.Logger = log.New(os.Stderr, "TermTest: ", log.LstdFlags|log.Lshortfile)
+		return nil
+	}
+}
+
+func OptErrorHandler(handler ErrorHandler) SetOpt {
+	return func(o *Opts) error {
+		o.ExpectErrorHandler = handler
+		return nil
+	}
+}
+
+func OptTestErrorHandler(t *testing.T) SetOpt {
+	return OptErrorHandler(TestErrorHandler(t))
+}
+
+func OptSilenceErrorHandler() SetOpt {
+	return OptErrorHandler(SilenceErrorHandler())
 }
 
 func (tt *TermTest) start() error {
@@ -87,14 +125,16 @@ func (tt *TermTest) start() error {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
+		defer tt.opts.Logger.Printf("termtest finished listening")
 		wg.Done()
-		err := tt.outputDigester.Listen(tt.ptmx)
+		err := tt.outputProducer.Listen(tt.ptmx)
 		if err != nil {
-			if !errors.Is(err, fs.ErrClosed) && !errors.Is(err, io.EOF) {
-				tt.opts.Logger.Printf("error while listening: %s", err)
-				// todo: Find a way to bubble up this error
+			if err == nil || errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
+				tt.listenError <- nil
+				return
 			}
 		}
+		tt.listenError <- err
 	}()
 	wg.Wait()
 
@@ -102,26 +142,45 @@ func (tt *TermTest) start() error {
 }
 
 // Close cleans up all the resources allocated by the TermTest
-func (tt *TermTest) Close() error {
-	log.Println("Close called")
+func (tt *TermTest) Close() (rerr error) {
+	defer tt.errorHandler(&rerr)
 
-	if tt.cmd.ProcessState != nil && !tt.cmd.ProcessState.Exited() {
-		return fmt.Errorf("process is still running: %d", tt.cmd.ProcessState.Pid())
+	tt.opts.Logger.Println("Close called")
+	defer tt.opts.Logger.Println("Closed")
+
+	// Wait for command exit
+	cmdError := make(chan error, 1)
+	go func() {
+		cmdError <- tt.cmd.Wait()
+	}()
+	select {
+	case err := <-cmdError:
+		if err != nil {
+			// Ignore ECHILD (no child process) error - means process has already finished
+			if !errors.Is(err, syscall.ECHILD) {
+				return fmt.Errorf("failed to wait for command: %w", err)
+			}
+		}
+	case <-time.After(time.Second):
+		return fmt.Errorf("timeout waiting for command to exit")
 	}
 
-	log.Println("Closing pty")
+	// Close pty
+	tt.opts.Logger.Println("Closing pty")
 	if err := tt.ptmx.Close(); err != nil {
 		return fmt.Errorf("failed to close pty: %w", err)
 	}
-	log.Println("Closed pty")
+	tt.opts.Logger.Println("Closed pty")
 
-	if err := tt.outputDigester.close(); err != nil {
+	// Close outputProducer
+	// This should trigger listenError from being written to (on a goroutine)
+	tt.opts.Logger.Println("Closing outputProducer")
+	if err := tt.outputProducer.close(); err != nil {
 		return fmt.Errorf("failed to close output digester: %w", err)
 	}
+	tt.opts.Logger.Println("Closed outputProducer")
 
-	close(tt.closed)
-
-	return nil
+	return <-tt.listenError
 }
 
 // Cmd returns the underlying command
@@ -131,7 +190,7 @@ func (tt *TermTest) Cmd() *exec.Cmd {
 
 // Snapshot returns a string containing a terminal snap-shot as a user would see it in a "real" terminal
 func (tt *TermTest) Snapshot() string {
-	return string(tt.outputDigester.Snapshot())
+	return string(tt.outputProducer.Snapshot())
 }
 
 // Send sends a new line to the terminal, as if a user typed it
@@ -151,4 +210,14 @@ func (tt *TermTest) SendLine(value string) (rerr error) {
 // listening for os.Interrupt signals.
 func (tt *TermTest) SendCtrlC() {
 	tt.Send(string([]byte{0x03})) // 0x03 is ASCII character for ^C
+}
+
+func (tt *TermTest) errorHandler(rerr *error) {
+	err := *rerr
+	if err == nil {
+		return
+	}
+
+	*rerr = tt.opts.ExpectErrorHandler(tt, err)
+	return
 }

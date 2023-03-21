@@ -1,9 +1,11 @@
 package termtest
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -42,4 +44,13 @@ func getIndex[T any](v []T, i int, fallback T) T {
 		return fallback
 	}
 	return v[i]
+}
+
+func unwrapErrorMessage(err error) string {
+	msg := []string{}
+	for err != nil {
+		msg = append(msg, err.Error())
+		err = errors.Unwrap(err)
+	}
+	return strings.Join(msg, " -> ")
 }
