@@ -131,9 +131,6 @@ func Test_ExpectExitCode(t *testing.T) {
 }
 
 func Test_SendAndSnapshot(t *testing.T) {
-	// Todo: Figure out why we are leaking goroutines here (ONLY when running the full test suite, not when running individual test)
-	// defer goleak.VerifyNone(t)
-
 	randStr1 := randString(DefaultCols + 1)
 	tests := []struct {
 		name     string
