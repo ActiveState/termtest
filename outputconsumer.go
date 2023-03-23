@@ -13,7 +13,6 @@ type outputConsumer struct {
 	_test_id string // for testing purposes only, not used for non-testing logic
 	consume  consumer
 	waiter   chan error
-	pos      int // Todo: Find a way to move the responsibility of this entirely into outputconsumer
 	opts     *OutputConsumerOpts
 }
 

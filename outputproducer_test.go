@@ -82,7 +82,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 	// stopAfter will cause it to send stopConsuming=true when encountering the given buffer
 	// errOn will fire an error when encountering the given buffer
 	// resultConsumerCalls is used to track consumer calls and their results
-	createConsumer := func(id string, stopAfter string, errOn string, resultConsumerCalls consumerCalls, opts ...SetConsOpt) *outputConsumer {
+	createConsumer := func(id string, stopAfter string, errOn string, resultConsumerCalls consumerCalls, opts ...SetConsOpt) *outputConsumerWithPos {
 		consumer := func(buffer string) (stopConsuming bool, err error) {
 			// Record consumer call
 			if _, ok := resultConsumerCalls[id]; !ok {
@@ -102,13 +102,13 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		}
 		oc := newOutputConsumer(consumer, append(opts, OptsConsTimeout(time.Second))...)
 		oc._test_id = id
-		return oc
+		return &outputConsumerWithPos{oc, 0}
 	}
 
 	tests := []struct {
 		name              string
 		op                func(t *testing.T) *outputProducer
-		consumers         func(consumerCalls) []*outputConsumer
+		consumers         func(consumerCalls) []*outputConsumerWithPos
 		appendCalls       []string      // the appendBuffer calls we want to make
 		wantAppendErrs    []error       // the errors we expect from the append calls
 		wantConsumerCalls consumerCalls // the consumer calls we expect
@@ -117,8 +117,8 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Consumer called and removed",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
-				return []*outputConsumer{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
+				return []*outputConsumerWithPos{
 					createConsumer("Only Consumer", "Hello", "", resultConsumerCalls),
 				}
 			},
@@ -132,8 +132,8 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Consumer called and remained",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
-				return []*outputConsumer{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
+				return []*outputConsumerWithPos{
 					createConsumer("Only Consumer", "", "", resultConsumerCalls),
 				}
 			},
@@ -147,8 +147,8 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Multiple appends",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
-				return []*outputConsumer{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
+				return []*outputConsumerWithPos{
 					createConsumer("Only Consumer", "", "", resultConsumerCalls),
 				}
 			},
@@ -162,8 +162,8 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Multiple appends with Full buffer consumer",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
-				return []*outputConsumer{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
+				return []*outputConsumerWithPos{
 					createConsumer("Only Consumer", "", "", resultConsumerCalls, OptConsSendFullBuffer()),
 				}
 			},
@@ -177,8 +177,8 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Mixed Consumer Calls",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
-				return []*outputConsumer{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
+				return []*outputConsumerWithPos{
 					createConsumer("Removed Consumer", "Hello", "", resultConsumerCalls),
 					createConsumer("Kept Consumer", "", "", resultConsumerCalls),
 				}
@@ -194,8 +194,8 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Mixed Consumer Calls with multiple appends",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
-				return []*outputConsumer{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
+				return []*outputConsumerWithPos{
 					createConsumer("Removed Consumer", "Two", "", resultConsumerCalls),
 					createConsumer("Kept Consumer", "", "", resultConsumerCalls),
 				}
@@ -211,8 +211,8 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Consumer error",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
-				return []*outputConsumer{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
+				return []*outputConsumerWithPos{
 					createConsumer("Only Consumer", "", "Hello", resultConsumerCalls),
 				}
 			},

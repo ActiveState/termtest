@@ -16,7 +16,7 @@ const producerBufferSize = 1024
 // outputProducer is responsible for keeping track of the output and notifying consumers when new output is produced
 type outputProducer struct {
 	snapshot  []byte
-	consumers []*outputConsumer
+	consumers []*outputConsumerWithPos
 	opts      *Opts
 	closed    chan struct{}
 	flush     chan struct{}
@@ -25,7 +25,7 @@ type outputProducer struct {
 func newOutputProducer(opts *Opts) *outputProducer {
 	return &outputProducer{
 		snapshot:  []byte{},
-		consumers: []*outputConsumer{},
+		consumers: []*outputConsumerWithPos{},
 		flush:     make(chan struct{}, 1),
 		closed:    make(chan struct{}),
 		opts:      opts,
@@ -134,11 +134,16 @@ func (o *outputProducer) close() error {
 	return nil
 }
 
-func (o *outputProducer) addConsumer(consume consumer, opts ...SetConsOpt) (*outputConsumer, error) {
+type outputConsumerWithPos struct {
+	*outputConsumer
+	pos int
+}
+
+func (o *outputProducer) addConsumer(consume consumer, opts ...SetConsOpt) (*outputConsumerWithPos, error) {
 	o.opts.Logger.Printf("adding consumer")
 
 	opts = append(opts, OptConsInherit(o.opts))
-	listener := newOutputConsumer(consume, opts...)
+	listener := &outputConsumerWithPos{newOutputConsumer(consume, opts...), 0}
 	listener.pos = len(o.snapshot)
 	o.consumers = append(o.consumers, listener)
 
