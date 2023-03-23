@@ -96,6 +96,8 @@ func Test_ExpectDontMatchInput(t *testing.T) {
 	tt.SendLine("FOO=bar")
 	tt.ExpectInput() // Without this input will be matched
 	tt.Expect("FOO=bar", SetTimeout(100*time.Millisecond))
+	tt.SendLine("exit")
+	tt.ExpectExitCode(0)
 
 	require.ErrorIs(t, expectError, TimeoutError, "Should have thrown an expect timeout error because FOO=bar was only sent via STDIN, snapshot: %s", tt.Snapshot())
 }

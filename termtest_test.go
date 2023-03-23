@@ -91,6 +91,7 @@ func Test_ExpectExitCode(t *testing.T) {
 		name      string
 		termtest  func(t *testing.T) *TermTest
 		send      string
+		exitAfter bool
 		expectErr error
 		expect    int
 	}{
@@ -98,6 +99,7 @@ func Test_ExpectExitCode(t *testing.T) {
 			"Simple exit 0",
 			func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true) },
 			"exit 0",
+			false,
 			nil,
 			0,
 		},
@@ -105,13 +107,15 @@ func Test_ExpectExitCode(t *testing.T) {
 			"Simple exit 100",
 			func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true) },
 			"exit 100",
+			false,
 			nil,
 			100,
 		},
 		{
 			"Timeout",
 			func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true) },
-			"sleep 10 && exit 0",
+			"sleep 2 && exit 0",
+			true,
 			TimeoutError,
 			0,
 		},
@@ -125,6 +129,11 @@ func Test_ExpectExitCode(t *testing.T) {
 			err := tt.ExpectExitCode(tc.expect, SetTimeout(time.Second))
 			if !errors.Is(err, tc.expectErr) {
 				t.Errorf("ExpectExitCode() error = %v, expectErr %v", err, tc.expectErr)
+			}
+
+			// Without this goleak will complain about a goroutine leak because the command will still be running
+			if tc.exitAfter {
+				tt.ExpectExitCode(0, SetTimeout(time.Second*2))
 			}
 		})
 	}
