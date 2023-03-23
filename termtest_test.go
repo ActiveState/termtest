@@ -2,47 +2,13 @@ package termtest
 
 import (
 	"errors"
-	"fmt"
-	"log"
-	"math/rand"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 )
-
-func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
-}
-
-func newTestOpts(o *Opts, t *testing.T) *Opts {
-	if o == nil {
-		o = &Opts{}
-	}
-	o.Logger = log.New(os.Stderr, filepath.Base(t.Name())+": ", log.Ltime|log.Lmicroseconds|log.Lshortfile)
-	o.ExpectErrorHandler = func(t *TermTest, err error) error {
-		return fmt.Errorf("Error encountered: %w\nSnapshot: %s", err, t.Snapshot())
-		return err
-	}
-	return o
-}
-
-func newTermTest(t *testing.T, cmd *exec.Cmd, logging bool) *TermTest {
-	tt, err := New(cmd, func(o *Opts) error {
-		o = newTestOpts(o, t)
-		if !logging {
-			o.Logger = log.New(voidWriter{}, "TermTest: ", log.LstdFlags)
-		}
-		return nil
-	})
-	require.NoError(t, err)
-	return tt
-}
 
 func Test_Close(t *testing.T) {
 	tests := []struct {
@@ -193,13 +159,4 @@ func Test_Timeout(t *testing.T) {
 	}
 
 	tt.SendLine("exit")
-}
-
-func randString(n int) string {
-	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
 }
