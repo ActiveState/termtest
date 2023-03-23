@@ -16,4 +16,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/creack/pty v1.1.11 => github.com/photostorm/pty v1.1.19-0.20221026012344-0a71ca4f0f8c
+replace github.com/creack/pty v1.1.11 => github.com/ActiveState/pty v0.0.0-20230323202545-db6cfc0728c8
