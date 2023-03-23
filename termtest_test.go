@@ -168,6 +168,27 @@ func Test_SendAndSnapshot(t *testing.T) {
 	}
 }
 
+func Test_Timeout(t *testing.T) {
+	tt, err := New(exec.Command("bash"), OptVerboseLogging())
+	require.NoError(t, err)
+	defer tt.Close()
+
+	start := time.Now()
+	expectError := tt.Expect("nevergonnamatch",
+		// options:
+		SetTimeout(100*time.Millisecond),
+		SetErrorHandler(SilenceErrorHandler()), // Prevent errors from bubbling up as panics
+	)
+	require.ErrorIs(t, expectError, TimeoutError)
+
+	// Timing tests are always error prone, so we give it a little wiggle room
+	if time.Since(start) > (200 * time.Millisecond) {
+		t.Errorf("Expect() took too long to timeout, took %s, but expected it to takes less than 200ms", time.Since(start))
+	}
+
+	tt.SendLine("exit")
+}
+
 func randString(n int) string {
 	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	b := make([]rune, n)

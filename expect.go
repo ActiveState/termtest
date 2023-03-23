@@ -48,7 +48,7 @@ func (o *ExpectOpts) ToConsumerOpts() []SetConsOpt {
 		consOpts = append(consOpts, OptConsSendFullBuffer())
 	}
 	if o.Timeout > 0 {
-		consOpts = append(consOpts)
+		consOpts = append(consOpts, OptsConsTimeout(o.Timeout))
 	}
 
 	return consOpts
