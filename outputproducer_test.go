@@ -4,9 +4,12 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func Test_outputProducer_listen(t *testing.T) {
@@ -50,12 +53,12 @@ func Test_outputProducer_listen(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := []string{}
-			append := func(v []byte) error {
+			appendV := func(v []byte) error {
 				got = append(got, string(v))
 				return nil
 			}
 			op := tt.op(t)
-			err := op.listen(tt.reader, append, producerInterval, bufferSize)
+			err := op.listen(tt.reader, appendV, producerInterval, bufferSize)
 			if errors.Is(err, io.EOF) {
 				err = nil
 			}
@@ -65,6 +68,7 @@ func Test_outputProducer_listen(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.wantAppends) {
 				t.Errorf("listen() got = %v, want %v", got, tt.wantAppends)
 			}
+			require.NoError(t, op.close())
 		})
 	}
 }
@@ -77,13 +81,15 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 	// The slice of strings are the buffer values that were passed to the consumer
 	type consumerCalls map[string][]string
 
+	type consumerWaitErrs map[string]error
+
 	// createConsumer helps reduce the boilerplate of creating a consumers
 	// id is used to track which consumers are still active
 	// stopAfter will cause it to send stopConsuming=true when encountering the given buffer
 	// errOn will fire an error when encountering the given buffer
 	// resultConsumerCalls is used to track consumer calls and their results
-	createConsumer := func(id string, stopAfter string, errOn string, resultConsumerCalls consumerCalls, opts ...SetConsOpt) *outputConsumerWithPos {
-		consumer := func(buffer string) (stopConsuming bool, err error) {
+	createConsumer := func(id string, stopAfter string, errOn string, resultConsumerCalls consumerCalls, opts ...SetConsOpt) *outputConsumer {
+		consumer := func(buffer string) (endPos int, err error) {
 			// Record consumer call
 			if _, ok := resultConsumerCalls[id]; !ok {
 				resultConsumerCalls[id] = []string{}
@@ -92,33 +98,35 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 
 			// Trigger error if errOn matches
 			if buffer == errOn {
-				return true, consumerError
+				return 0, consumerError
 			}
 
-			// Determine whether to keep consuming
-			stopConsuming = buffer == stopAfter
+			if i := strings.Index(buffer, stopAfter); i != -1 {
+				return i + len(stopAfter), nil
+			}
 
-			return stopConsuming, nil
+			return 0, nil
 		}
 		oc := newOutputConsumer(consumer, append(opts, OptsConsTimeout(time.Second))...)
 		oc._test_id = id
-		return &outputConsumerWithPos{oc, 0}
+		return oc
 	}
 
 	tests := []struct {
 		name              string
 		op                func(t *testing.T) *outputProducer
-		consumers         func(consumerCalls) []*outputConsumerWithPos
-		appendCalls       []string      // the appendBuffer calls we want to make
-		wantAppendErrs    []error       // the errors we expect from the append calls
-		wantConsumerCalls consumerCalls // the consumer calls we expect
-		wantConsumerIDs   []string      // the consumer ids we expect to be active after the test
+		consumers         func(consumerCalls) []*outputConsumer
+		appendCalls       []string         // the appendBuffer calls we want to make
+		wantAppendErrs    []error          // the errors we expect from the append calls
+		wantWaitErrs      consumerWaitErrs // the error we expect from the wait call
+		wantConsumerCalls consumerCalls    // the consumer calls we expect
+		wantConsumerIDs   []string         // the consumer ids we expect to be active after the test
 	}{
 		{
 			name: "Consumer called and removed",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
-				return []*outputConsumerWithPos{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
+				return []*outputConsumer{
 					createConsumer("Only Consumer", "Hello", "", resultConsumerCalls),
 				}
 			},
@@ -132,13 +140,16 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Consumer called and remained",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
-				return []*outputConsumerWithPos{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
+				return []*outputConsumer{
 					createConsumer("Only Consumer", "", "", resultConsumerCalls),
 				}
 			},
 			appendCalls:    []string{"Hello"},
 			wantAppendErrs: []error{nil},
+			wantWaitErrs: consumerWaitErrs{
+				"Only Consumer": TimeoutError,
+			},
 			wantConsumerCalls: consumerCalls{
 				"Only Consumer": {"Hello"},
 			},
@@ -147,28 +158,16 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Multiple appends",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
-				return []*outputConsumerWithPos{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
+				return []*outputConsumer{
 					createConsumer("Only Consumer", "", "", resultConsumerCalls),
 				}
 			},
 			appendCalls:    []string{"Hello", "World"},
 			wantAppendErrs: []error{nil, nil},
-			wantConsumerCalls: consumerCalls{
-				"Only Consumer": {"Hello", "World"},
+			wantWaitErrs: consumerWaitErrs{
+				"Only Consumer": TimeoutError,
 			},
-			wantConsumerIDs: []string{"Only Consumer"},
-		},
-		{
-			name: "Multiple appends with Full buffer consumer",
-			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
-				return []*outputConsumerWithPos{
-					createConsumer("Only Consumer", "", "", resultConsumerCalls, OptConsSendFullBuffer()),
-				}
-			},
-			appendCalls:    []string{"Hello", "World"},
-			wantAppendErrs: []error{nil, nil},
 			wantConsumerCalls: consumerCalls{
 				"Only Consumer": {"Hello", "HelloWorld"},
 			},
@@ -177,14 +176,18 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Mixed Consumer Calls",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
-				return []*outputConsumerWithPos{
-					createConsumer("Removed Consumer", "Hello", "", resultConsumerCalls),
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
+				return []*outputConsumer{
 					createConsumer("Kept Consumer", "", "", resultConsumerCalls),
+					createConsumer("Removed Consumer", "Hello", "", resultConsumerCalls),
 				}
 			},
 			appendCalls:    []string{"Hello"},
 			wantAppendErrs: []error{nil},
+			wantWaitErrs: consumerWaitErrs{
+				"Kept Consumer":    TimeoutError,
+				"Removed Consumer": nil,
+			},
 			wantConsumerCalls: consumerCalls{
 				"Removed Consumer": {"Hello"},
 				"Kept Consumer":    {"Hello"},
@@ -194,30 +197,37 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 		{
 			name: "Mixed Consumer Calls with multiple appends",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
-				return []*outputConsumerWithPos{
-					createConsumer("Removed Consumer", "Two", "", resultConsumerCalls),
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
+				return []*outputConsumer{
 					createConsumer("Kept Consumer", "", "", resultConsumerCalls),
+					createConsumer("Removed Consumer", "Two", "", resultConsumerCalls),
 				}
 			},
 			appendCalls:    []string{"One", "Two", "Three"},
 			wantAppendErrs: []error{nil, nil, nil},
+			wantWaitErrs: consumerWaitErrs{
+				"Kept Consumer":    TimeoutError,
+				"Removed Consumer": nil,
+			},
 			wantConsumerCalls: consumerCalls{
-				"Removed Consumer": {"One", "Two"},
-				"Kept Consumer":    {"One", "Two", "Three"},
+				"Removed Consumer": {"One", "OneTwo"},
+				"Kept Consumer":    {"One", "OneTwo", "Three" /* Removed consumer matched "Two", so the buffer has moved on */},
 			},
 			wantConsumerIDs: []string{"Kept Consumer"},
 		},
 		{
 			name: "Consumer error",
 			op:   func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
-			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumerWithPos {
-				return []*outputConsumerWithPos{
+			consumers: func(resultConsumerCalls consumerCalls) []*outputConsumer {
+				return []*outputConsumer{
 					createConsumer("Only Consumer", "", "Hello", resultConsumerCalls),
 				}
 			},
 			appendCalls:    []string{"Hello"},
 			wantAppendErrs: []error{consumerError},
+			wantWaitErrs: consumerWaitErrs{
+				"Only Consumer": consumerError,
+			},
 			wantConsumerCalls: consumerCalls{
 				"Only Consumer": {"Hello"},
 			},
@@ -235,16 +245,20 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 			op.consumers = tt.consumers(resultConsumerCalls)
 
 			wg := &sync.WaitGroup{}
-			for _, consumer := range op.consumers {
-				wg.Add(1)
-				go func() { // Otherwise appendBuffer will block
-					defer wg.Done()
-					consumer.wait()
-				}()
+			if tt.wantWaitErrs != nil {
+				for _, consumer := range op.consumers {
+					wg.Add(1)
+					go func(consumer *outputConsumer) { // Otherwise appendBuffer will block
+						defer wg.Done()
+						err := consumer.wait()
+						require.ErrorIs(t, err, tt.wantWaitErrs[consumer._test_id],
+							"consumer %s expected error %T, got %T", consumer._test_id, tt.wantWaitErrs[consumer._test_id], err)
+					}(consumer)
+				}
 			}
 
-			for n, append := range tt.appendCalls {
-				if err := op.appendBuffer([]byte(append)); !errors.Is(err, tt.wantAppendErrs[n]) {
+			for n, appendV := range tt.appendCalls {
+				if err := op.appendBuffer([]byte(appendV)); !errors.Is(err, tt.wantAppendErrs[n]) {
 					t.Errorf("appendBuffer() error = %v, wantErr %v", err, tt.wantAppendErrs[n])
 				}
 			}

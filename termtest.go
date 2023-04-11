@@ -3,14 +3,12 @@ package termtest
 import (
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"log"
 	"os"
 	"os/exec"
+	"runtime"
 	"runtime/debug"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
@@ -33,6 +31,7 @@ type Opts struct {
 	ExpectErrorHandler ErrorHandler
 	Cols               uint16
 	Rows               uint16
+	Posix              bool
 }
 
 var TimeoutError = errors.New("timeout")
@@ -40,6 +39,7 @@ var TimeoutError = errors.New("timeout")
 type SetOpt func(o *Opts) error
 
 const DefaultCols = 1000
+const DefaultRows = 10
 
 func NewOpts() *Opts {
 	return &Opts{
@@ -47,8 +47,9 @@ func NewOpts() *Opts {
 		ExpectErrorHandler: func(_ *TermTest, err error) error {
 			panic(err)
 		},
-		Cols: DefaultCols,
-		Rows: 1,
+		Cols:  DefaultCols,
+		Rows:  DefaultRows,
+		Posix: runtime.GOOS != "windows",
 	}
 }
 
@@ -105,8 +106,33 @@ func OptTestErrorHandler(t *testing.T) SetOpt {
 	return OptErrorHandler(TestErrorHandler(t))
 }
 
+func OptCols(cols uint16) SetOpt {
+	return func(o *Opts) error {
+		o.Cols = cols
+		return nil
+	}
+}
+
+// OptRows sets the number of rows for the pty, increase this if you find your output appears to stop prematurely
+// appears to only make a difference on Windows. Linux/Mac will happily function with a single row
+func OptRows(rows uint16) SetOpt {
+	return func(o *Opts) error {
+		o.Rows = rows
+		return nil
+	}
+}
+
 func OptSilenceErrorHandler() SetOpt {
 	return OptErrorHandler(SilenceErrorHandler())
+}
+
+// OptPosix informs termtest to treat the command as a posix command
+// This will affect line endings as well as output sanitization
+func OptPosix(v bool) SetOpt {
+	return func(o *Opts) error {
+		o.Posix = v
+		return nil
+	}
 }
 
 func (tt *TermTest) start() error {
@@ -128,12 +154,6 @@ func (tt *TermTest) start() error {
 		defer tt.opts.Logger.Printf("termtest finished listening")
 		wg.Done()
 		err := tt.outputProducer.Listen(tt.ptmx)
-		if err != nil {
-			if err == nil || errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
-				tt.listenError <- nil
-				return
-			}
-		}
 		tt.listenError <- err
 	}()
 	wg.Wait()
@@ -141,38 +161,50 @@ func (tt *TermTest) start() error {
 	return nil
 }
 
-// Close cleans up all the resources allocated by the TermTest
-func (tt *TermTest) Close() (rerr error) {
-	defer tt.errorHandler(&rerr)
+// Wait will wait for the cmd and pty to close and cleans up all the resources allocated by the TermTest
+// For most tests you probably want to use ExpectExit* instead.
+// Note that unlike ExpectExit*, this will NOT invoke cmd.Wait().
+func (tt *TermTest) Wait(timeout time.Duration) error {
+	tt.opts.Logger.Println("wait called")
+	defer tt.opts.Logger.Println("wait closed")
 
-	tt.opts.Logger.Println("Close called")
-	defer tt.opts.Logger.Println("Closed")
-
-	// Wait for command exit
-	cmdError := make(chan error, 1)
+	errc := make(chan error, 1)
 	go func() {
-		cmdError <- tt.cmd.Wait()
+		errc <- tt.WaitIndefinitely()
 	}()
+
 	select {
-	case err := <-cmdError:
-		if err != nil {
-			// Ignore ECHILD (no child process) error - means process has already finished
-			if !errors.Is(err, syscall.ECHILD) {
-				return fmt.Errorf("failed to wait for command: %w", err)
-			}
-		}
-	case <-time.After(time.Second):
-		return fmt.Errorf("timeout waiting for command to exit")
+	case err := <-errc:
+		return err
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout waiting for command and pty to close: %w", TimeoutError)
+	}
+}
+
+func (tt *TermTest) WaitIndefinitely() error {
+	tt.opts.Logger.Println("WaitIndefinitely called")
+	defer tt.opts.Logger.Println("WaitIndefinitely closed")
+
+	// On windows there is a race condition where ClosePseudoConsole will hang if we call it around the same
+	// time as the parent process exits.
+	// This is not a clean solution, as there's no guarantee that 100 milliseconds will be sufficient. But in
+	// my tests it has been, and I can't afford to keep digging on this.
+	if runtime.GOOS == "windows" {
+		time.Sleep(time.Millisecond * 100)
 	}
 
-	// Close pty
 	tt.opts.Logger.Println("Closing pty")
 	if err := tt.ptmx.Close(); err != nil {
-		return fmt.Errorf("failed to close pty: %w", err)
+		if errors.Is(err, ERR_ACCESS_DENIED) {
+			// Ignore access denied error - means process has already finished
+			tt.opts.Logger.Println("Ignoring access denied error")
+		} else {
+			return fmt.Errorf("failed to close pty: %w", err)
+		}
 	}
 	tt.opts.Logger.Println("Closed pty")
 
-	// Close outputProducer
+	// wait outputProducer
 	// This should trigger listenError from being written to (on a goroutine)
 	tt.opts.Logger.Println("Closing outputProducer")
 	if err := tt.outputProducer.close(); err != nil {
@@ -180,6 +212,8 @@ func (tt *TermTest) Close() (rerr error) {
 	}
 	tt.opts.Logger.Println("Closed outputProducer")
 
+	// listenError will be written to when the process exits, and this is the only reasonable place for us to
+	// catch listener errors
 	return <-tt.listenError
 }
 
@@ -188,7 +222,7 @@ func (tt *TermTest) Cmd() *exec.Cmd {
 	return tt.cmd
 }
 
-// Snapshot returns a string containing a terminal snap-shot as a user would see it in a "real" terminal
+// Snapshot returns a string containing a terminal snapshot as a user would see it in a "real" terminal
 func (tt *TermTest) Snapshot() string {
 	return string(tt.outputProducer.Snapshot())
 }
@@ -202,6 +236,10 @@ func (tt *TermTest) Send(value string) (rerr error) {
 
 // SendLine sends a new line to the terminal, as if a user typed it, the newline sequence is OS aware
 func (tt *TermTest) SendLine(value string) (rerr error) {
+	lineSep := lineSepPosix
+	if !tt.opts.Posix {
+		lineSep = lineSepWindows
+	}
 	return tt.Send(fmt.Sprintf("%s%s", value, lineSep))
 }
 

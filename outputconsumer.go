@@ -7,7 +7,7 @@ import (
 
 var StopPrematureError = fmt.Errorf("stop called while consumer was still active")
 
-type consumer func(buffer string) (stopConsuming bool, err error)
+type consumer func(buffer string) (matchEndPos int, err error)
 
 type outputConsumer struct {
 	_test_id string // for testing purposes only, not used for non-testing logic
@@ -18,11 +18,7 @@ type outputConsumer struct {
 
 type OutputConsumerOpts struct {
 	*Opts
-
-	// Sends the full buffer each time, with the latest data appended to the end.
-	// This is the full buffer as of the point in time that the consumer started listening.
-	SendFullBuffer bool
-	Timeout        time.Duration
+	Timeout time.Duration
 }
 
 type SetConsOpt func(o *OutputConsumerOpts)
@@ -30,12 +26,6 @@ type SetConsOpt func(o *OutputConsumerOpts)
 func OptConsInherit(o *Opts) func(o *OutputConsumerOpts) {
 	return func(oco *OutputConsumerOpts) {
 		oco.Opts = o
-	}
-}
-
-func OptConsSendFullBuffer() func(o *OutputConsumerOpts) {
-	return func(oco *OutputConsumerOpts) {
-		oco.SendFullBuffer = true
 	}
 }
 
@@ -63,23 +53,28 @@ func newOutputConsumer(consume consumer, opts ...SetConsOpt) *outputConsumer {
 }
 
 // Report will consume the given buffer and will block unless wait() has been called
-func (e *outputConsumer) Report(buffer []byte) (stopConsuming bool, err error) {
-	stop, err := e.consume(string(buffer))
+func (e *outputConsumer) Report(buffer []byte) (int, error) {
+	pos, err := e.consume(string(buffer))
 	if err != nil {
 		err = fmt.Errorf("meets threw error: %w", err)
 	}
-	if err != nil || stop {
-		// This prevents report() from blocking in case Wait() has not been called yet
+	if err == nil && pos > len(buffer) {
+		err = fmt.Errorf("consumer returned endPos %d which is greater than buffer length %d", pos, len(buffer))
+	}
+	if err != nil || pos > 0 {
+		e.opts.Logger.Printf("closing waiter from report, err: %v, endPos: %d\n", err, pos)
+		// This prevents report() from blocking in case wait() has not been called yet
 		go func() {
 			e.waiter <- err
 		}()
 	}
-	return stop, err
+	return pos, err
 }
 
 // close is by definition an error condition, because it would only be called if the consumer is still active
 // under normal conditions the consumer is dropped when the wait is satisfied
 func (e *outputConsumer) close() {
+	e.opts.Logger.Println("closing waiter close method")
 	e.waiter <- StopPrematureError
 }
 

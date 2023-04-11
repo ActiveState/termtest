@@ -1,7 +1,7 @@
 package termtest
 
 import (
-	"errors"
+	"fmt"
 	"os/exec"
 	"sync"
 	"testing"
@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_Close(t *testing.T) {
+func Test_Wait(t *testing.T) {
 	tests := []struct {
 		name     string
 		termtest func(t *testing.T, wg *sync.WaitGroup) *TermTest
@@ -30,8 +30,8 @@ func Test_Close(t *testing.T) {
 				tt := newTermTest(t, exec.Command("bash", "--version"), true)
 				go func() {
 					defer wg.Done()
-					time.Sleep(time.Second) // Ensure that Close is called before we run the Expect
-					err := tt.Expect("Too late", SetTimeout(time.Millisecond))
+					time.Sleep(time.Second) // Ensure that wait is called before we run the Expect
+					err := tt.Expect("Too late", OptExpectTimeout(time.Millisecond), OptExpectSilenceErrorHandler())
 					require.ErrorIs(t, err, TimeoutError)
 				}()
 				return tt
@@ -44,8 +44,8 @@ func Test_Close(t *testing.T) {
 			wg := &sync.WaitGroup{}
 			wg.Add(1)
 			tt := tc.termtest(t, wg)
-			if err := tt.Close(); (err != nil) != tc.wantErr {
-				t.Errorf("Close() error = %v, wantErr %v", err, tc.wantErr)
+			if err := tt.Wait(time.Second * 5); (err != nil) != tc.wantErr {
+				t.Errorf("wait() error = %v, wantErr %v", err, tc.wantErr)
 			}
 			wg.Wait()
 		})
@@ -80,7 +80,7 @@ func Test_ExpectExitCode(t *testing.T) {
 		{
 			"Timeout",
 			func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true) },
-			"sleep 2 && exit 0",
+			"sleep 1.1 && exit 0",
 			true,
 			TimeoutError,
 			0,
@@ -89,24 +89,21 @@ func Test_ExpectExitCode(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tt := tc.termtest(t)
-			defer tt.Close()
 
 			require.NoError(t, tt.SendLine(tc.send))
-			err := tt.ExpectExitCode(tc.expect, SetTimeout(time.Second))
-			if !errors.Is(err, tc.expectErr) {
-				t.Errorf("ExpectExitCode() error = %v, expectErr %v", err, tc.expectErr)
-			}
+			err := tt.ExpectExitCode(tc.expect, OptExpectTimeout(time.Second), OptExpectSilenceErrorHandler())
+			require.ErrorIs(t, err, tc.expectErr)
 
 			// Without this goleak will complain about a goroutine leak because the command will still be running
 			if tc.exitAfter {
-				tt.ExpectExitCode(0, SetTimeout(time.Second*2))
+				require.NoError(t, tt.Wait(5*time.Second))
 			}
 		})
 	}
 }
 
 func Test_SendAndSnapshot(t *testing.T) {
-	randStr1 := randString(DefaultCols + 1)
+	var cols uint16 = 20
 	tests := []struct {
 		name     string
 		termtest func(t *testing.T) *TermTest
@@ -121,21 +118,24 @@ func Test_SendAndSnapshot(t *testing.T) {
 		},
 		{
 			name:     "Long String",
-			termtest: func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true) },
-			send:     "echo " + randStr1,
-			expect:   randStr1,
+			termtest: func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("cmd"), true, OptCols(cols)) },
+			send:     "echo hellooooooooooooooooooooooo",
+			expect:   "hellooooooooooooooooooooooo",
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tt := tc.termtest(t)
-			defer tt.Close()
 
+			fmt.Printf("Sending: %s\n", tc.send)
+			time.Sleep(time.Second)
 			tt.SendLine(tc.send)
+			tt.Expect("hello")
 			tt.SendLine("exit")
-			tt.ExpectExit()
+			tt.ExpectExitCode(0)
+
 			snapshot := tt.Snapshot()
-			require.Contains(t, snapshot, tc.expect)
+			require.Contains(t, snapshot, tc.expect, fmt.Sprintf("Expected: %s\nSnapshot: %s\n", tc.expect, snapshot))
 		})
 	}
 }
@@ -143,13 +143,12 @@ func Test_SendAndSnapshot(t *testing.T) {
 func Test_Timeout(t *testing.T) {
 	tt, err := New(exec.Command("bash"), OptVerboseLogging())
 	require.NoError(t, err)
-	defer tt.Close()
 
 	start := time.Now()
 	expectError := tt.Expect("nevergonnamatch",
 		// options:
-		SetTimeout(100*time.Millisecond),
-		SetErrorHandler(SilenceErrorHandler()), // Prevent errors from bubbling up as panics
+		OptExpectTimeout(100*time.Millisecond),
+		OptExpectErrorHandler(SilenceErrorHandler()), // Prevent errors from bubbling up as panics
 	)
 	require.ErrorIs(t, expectError, TimeoutError)
 
@@ -159,4 +158,5 @@ func Test_Timeout(t *testing.T) {
 	}
 
 	tt.SendLine("exit")
+	tt.ExpectExitCode(0)
 }

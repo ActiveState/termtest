@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,19 +51,18 @@ func newTestOpts(o *Opts, t *testing.T) *Opts {
 	o.Logger = log.New(os.Stderr, filepath.Base(t.Name())+": ", log.Ltime|log.Lmicroseconds|log.Lshortfile)
 	o.ExpectErrorHandler = func(t *TermTest, err error) error {
 		return fmt.Errorf("Error encountered: %w\nSnapshot: %s", err, t.Snapshot())
-		return err
 	}
 	return o
 }
 
-func newTermTest(t *testing.T, cmd *exec.Cmd, logging bool) *TermTest {
-	tt, err := New(cmd, func(o *Opts) error {
+func newTermTest(t *testing.T, cmd *exec.Cmd, logging bool, opts ...SetOpt) *TermTest {
+	tt, err := New(cmd, append(opts, func(o *Opts) error {
 		o = newTestOpts(o, t)
 		if !logging {
 			o.Logger = log.New(voidWriter{}, "TermTest: ", log.LstdFlags)
 		}
 		return nil
-	})
+	}, OptTestErrorHandler(t))...)
 	require.NoError(t, err)
 	return tt
 }
@@ -74,4 +74,19 @@ func randString(n int) string {
 		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
+}
+
+func indexEndPos(s, substr string) int {
+	i := strings.Index(s, substr)
+	if i == -1 {
+		return 0
+	}
+	return i + len(substr)
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

@@ -23,9 +23,9 @@ func Test_OutputConsumer(t *testing.T) {
 		{
 			"Simple",
 			func(reports *[]string) *outputConsumer {
-				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
+				return newOutputConsumer(func(buffer string) (endPos int, err error) {
 					*reports = append(*reports, buffer)
-					return true, nil
+					return 1, nil
 				}, OptConsInherit(newTestOpts(nil, t)))
 			},
 			[]string{"Report"},
@@ -36,9 +36,9 @@ func Test_OutputConsumer(t *testing.T) {
 		{
 			"Multiple reports",
 			func(reports *[]string) *outputConsumer {
-				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
+				return newOutputConsumer(func(buffer string) (endPos int, err error) {
 					*reports = append(*reports, buffer)
-					return buffer != "Three", nil
+					return boolToInt(buffer != "Three"), nil
 				}, OptConsInherit(newTestOpts(nil, t)))
 			},
 			[]string{"One", "Two", "Three"},
@@ -49,8 +49,8 @@ func Test_OutputConsumer(t *testing.T) {
 		{
 			"Consumer error",
 			func(reports *[]string) *outputConsumer {
-				return newOutputConsumer(func(buffer string) (stopConsuming bool, err error) {
-					return true, testConsumerError
+				return newOutputConsumer(func(buffer string) (endPos int, err error) {
+					return 1, testConsumerError
 				}, OptConsInherit(newTestOpts(nil, t)))
 			},
 			[]string{"Report"},
