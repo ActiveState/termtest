@@ -124,13 +124,13 @@ func expect(value, buffer string) (endPos int, rerr error) {
 
 // ExpectRe listens to the terminal output and returns once the expected regular expression is matched or a timeout occurs
 // Default timeout is 10 seconds
-func (tt *TermTest) ExpectRe(rx regexp.Regexp, opts ...SetExpectOpt) error {
+func (tt *TermTest) ExpectRe(rx *regexp.Regexp, opts ...SetExpectOpt) error {
 	return tt.ExpectCustom(func(buffer string) (int, error) {
 		return expectRe(rx, buffer)
 	}, opts...)
 }
 
-func expectRe(rx regexp.Regexp, buffer string) (int, error) {
+func expectRe(rx *regexp.Regexp, buffer string) (int, error) {
 	idx := rx.FindIndex([]byte(buffer))
 	if idx == nil {
 		return 0, nil
