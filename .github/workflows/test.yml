@@ -33,6 +33,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Environment info
+        shell: bash
         run: |
           echo "Go Version:"
           go version
@@ -42,19 +43,30 @@ jobs:
           echo $PATH
 
       - name: Build
+        shell: bash
         run: go build -v .
 
       - name: Test
-        run: go test -v . -json 2>&1 | gotestfmt -hide empty-packages
+        shell: bash
+        run: go test -v . -json 2>&1 > test.out && cat test.out | gotestfmt -hide empty-packages
         id: test
         continue-on-error: true
 
+      - name: Raw Test Results
+        shell: bash
+        run: cat test.out
+
       - name: Race Test
-        run: go test -v . -race -json 2>&1 | gotestfmt -hide empty-packages
+        shell: bash
+        run: go test -v . -race -json 2>&1 > race.out && cat race.out | gotestfmt -hide empty-packages
         id: race
         continue-on-error: true
 
-      - name: Tests Successful
-        if: steps.test.outcome == 'failure' || steps.race.outcome == 'failure'
+      - name: Raw Race Results
         shell: bash
+        run: cat race.out
+
+      - name: Tests Successful
+        shell: bash
+        if: steps.test.outcome == 'failure' || steps.race.outcome == 'failure'
         run: exit 1
