@@ -32,17 +32,29 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: debug
+      - name: Environment info
         run: |
+          echo "Go Version:"
           go version
+          echo "\nGo env:"
           go env
+          echo "\nPATH:"
           echo $PATH
 
       - name: Build
         run: go build -v .
 
-      - name: Race Test
-        run: go test -v . -race -json 2>&1 | gotestfmt -hide empty-packages
-
       - name: Test
         run: go test -v . -count 5 -json 2>&1 | gotestfmt -hide empty-packages
+        id: test
+        continue-on-error: true
+
+      - name: Race Test
+        run: go test -v . -race -json 2>&1 | gotestfmt -hide empty-packages
+        id: race
+        continue-on-error: true
+
+      - name: Tests Successful
+        if: steps.test.outcome == 'failure' || steps.race.outcome == 'failure'
+        shell: bash
+        run: exit 1
