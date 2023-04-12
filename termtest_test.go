@@ -127,7 +127,8 @@ func Test_SendAndSnapshot(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tt := tc.termtest(t)
 
-			time.Sleep(time.Second)
+			tt.ExpectInput()
+			
 			tt.SendLine(tc.send)
 			tt.Expect("hello")
 			tt.SendLine("exit")
