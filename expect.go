@@ -106,14 +106,14 @@ func (tt *TermTest) ExpectCustom(consumer consumer, opts ...SetExpectOpt) (rerr 
 // Expect listens to the terminal output and returns once the expected value is found or a timeout occurs
 func (tt *TermTest) Expect(value string, opts ...SetExpectOpt) error {
 	return tt.ExpectCustom(func(buffer string) (int, error) {
-		return expect(value, buffer)
+		return tt.expect(value, buffer)
 	}, opts...)
 }
 
-func expect(value, buffer string) (endPos int, rerr error) {
-	fmt.Printf("expect: '%s', buffer: '%s'\n", value, strings.TrimSpace(buffer))
+func (tt *TermTest) expect(value, buffer string) (endPos int, rerr error) {
+	tt.opts.Logger.Printf("expect: '%s', buffer: '%s'\n", value, strings.Trim(strings.TrimSpace(buffer), "\x00"))
 	defer func() {
-		fmt.Printf("Match: %v\n", endPos > 0)
+		tt.opts.Logger.Printf("Match: %v\n", endPos > 0)
 	}()
 	idx := strings.Index(buffer, value)
 	if idx == -1 {
@@ -194,7 +194,7 @@ func (tt *TermTest) expectExitCode(exitCode int, match bool, opts ...SetExpectOp
 		if err != nil && (tt.cmd.ProcessState == nil || tt.cmd.ProcessState.ExitCode() == 0) {
 			return fmt.Errorf("cmd wait failed: %w", err)
 		}
-		if err := assertExitCode(tt.cmd.ProcessState.ExitCode(), exitCode, match); err != nil {
+		if err := tt.assertExitCode(tt.cmd.ProcessState.ExitCode(), exitCode, match); err != nil {
 			return err
 		}
 	}
@@ -206,8 +206,8 @@ func (tt *TermTest) expectExitCode(exitCode int, match bool, opts ...SetExpectOp
 	return nil
 }
 
-func assertExitCode(exitCode, comparable int, match bool) error {
-	fmt.Printf("assertExitCode: exitCode=%d, comparable=%d, match=%v\n", exitCode, comparable, match)
+func (tt *TermTest) assertExitCode(exitCode, comparable int, match bool) error {
+	tt.opts.Logger.Printf("assertExitCode: exitCode=%d, comparable=%d, match=%v\n", exitCode, comparable, match)
 	if compared := exitCode == comparable; compared != match {
 		if match {
 			return fmt.Errorf("expected exit code %d, got %d", comparable, exitCode)

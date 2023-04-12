@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -88,7 +87,6 @@ func Test_ExpectCustom(t *testing.T) {
 			},
 			args{
 				func(buffer string) (endPos int, err error) {
-					fmt.Printf("--- buffer: %s (%v)\n", buffer, strings.Contains(buffer, "Hello World"))
 					return indexEndPos(buffer, "Hello World"), nil
 				},
 				[]SetExpectOpt{},
@@ -156,7 +154,6 @@ func Test_ExpectCustom_Cmd(t *testing.T) {
 			},
 			args{
 				func(buffer string) (endPos int, err error) {
-					fmt.Printf("--- buffer: %s (%v)\n", buffer, strings.Contains(buffer, "Hello World"))
 					return indexEndPos(buffer, "Hello World"), nil
 				},
 				[]SetExpectOpt{},

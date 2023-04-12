@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"strings"
 	"sync"
 	"time"
 )
@@ -77,7 +76,7 @@ func (o *outputProducer) processNextRead(r io.Reader, appendBuffer func([]byte) 
 		if !o.opts.Posix {
 			snapshot = cleanPtySnapshotWindows(snapshot[:n])
 		}
-		o.opts.Logger.Printf("outputProducer read %d bytes from pty: %s", n, strings.TrimSpace(string(snapshot)))
+		o.opts.Logger.Printf("outputProducer read %d bytes from pty", n)
 		if err := appendBuffer(snapshot); err != nil {
 			return fmt.Errorf("could not append buffer: %w", err)
 		}
