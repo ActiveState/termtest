@@ -56,6 +56,7 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 		o.opts.Logger.Println("listen: interval called")
 		if err := o.processNextRead(br, appendBuffer, size); err != nil {
 			if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
+				o.opts.Logger.Println("listen: reached EOF")
 				return nil
 			} else {
 				return fmt.Errorf("could not poll reader: %w", err)
