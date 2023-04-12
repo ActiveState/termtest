@@ -131,12 +131,6 @@ func Test_SendAndSnapshot(t *testing.T) {
 
 			tt.SendLine(tc.send)
 			tt.SendLine("exit")
-
-			// There is a race condition between the process exiting (ie. the ExpectExitCode above) and the snapshot
-			// reading goroutine finishing.
-			// https://activestatef.atlassian.net/browse/DX-1739
-			time.Sleep(time.Second)
-			
 			tt.ExpectExitCode(0)
 
 			snapshot := tt.Snapshot()

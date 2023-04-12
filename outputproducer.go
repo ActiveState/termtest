@@ -52,8 +52,6 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 	// iteration
 	for {
 		o.opts.Logger.Println("listen: loop")
-		<-time.After(interval)
-		o.opts.Logger.Println("listen: interval called")
 		if err := o.processNextRead(br, appendBuffer, size); err != nil {
 			if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
 				o.opts.Logger.Println("listen: reached EOF")
