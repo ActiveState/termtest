@@ -118,7 +118,7 @@ func Test_SendAndSnapshot(t *testing.T) {
 		},
 		{
 			name:     "Long String",
-			termtest: func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("cmd"), true, OptCols(cols)) },
+			termtest: func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true, OptCols(cols)) },
 			send:     "echo hellooooooooooooooooooooooo",
 			expect:   "hellooooooooooooooooooooooo",
 		},
