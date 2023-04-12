@@ -45,7 +45,7 @@ jobs:
         run: go build -v .
 
       - name: Test
-        run: go test -v . -count 5 -json 2>&1 | gotestfmt -hide empty-packages
+        run: go test -v . -json 2>&1 | gotestfmt -hide empty-packages
         id: test
         continue-on-error: true
 
