@@ -52,9 +52,12 @@ jobs:
         id: test
         continue-on-error: true
 
-      - name: Raw Test Results
+      - name: Raw Test (debug mode only)
         shell: bash
-        run: cat test.out
+        if: runner.debug == '1'
+        run: go test -v .
+        id: debug
+        continue-on-error: true
 
       - name: Race Test
         shell: bash
@@ -62,11 +65,7 @@ jobs:
         id: race
         continue-on-error: true
 
-      - name: Raw Race Results
-        shell: bash
-        run: cat race.out
-
       - name: Tests Successful
         shell: bash
-        if: steps.test.outcome == 'failure' || steps.race.outcome == 'failure'
+        if: steps.test.outcome == 'failure' || steps.debug.outcome == 'failure' || steps.race.outcome == 'failure'
         run: exit 1
