@@ -216,6 +216,8 @@ func Test_ExpectMatchTwiceSameBuffer(t *testing.T) {
 	tt, err := New(exec.Command("bash"), OptVerboseLogging())
 	require.NoError(t, err)
 
+	tt.ExpectInput()
+
 	tt.SendLine("echo ONE TWO THREE")
 	tt.Expect("echo ONE TWO THREE", OptExpectTimeout(time.Second)) // Match stdin first
 
