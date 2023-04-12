@@ -140,8 +140,7 @@ func Test_SendAndSnapshot(t *testing.T) {
 }
 
 func Test_Timeout(t *testing.T) {
-	tt, err := New(exec.Command("bash"), OptVerboseLogging())
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("bash"), true)
 
 	start := time.Now()
 	expectError := tt.Expect("nevergonnamatch",

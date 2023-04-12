@@ -12,8 +12,7 @@ import (
 )
 
 func Test_Expect(t *testing.T) {
-	tt, err := New(exec.Command("bash", "-c", "echo HELLO"), OptTestErrorHandler(t))
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("bash", "-c", "echo HELLO"), true)
 	tt.Expect("HELLO")
 	tt.ExpectExitCode(0)
 }
@@ -23,15 +22,13 @@ func Test_Expect_Cmd(t *testing.T) {
 		t.Skip("Skipping test on non-windows platform")
 	}
 
-	tt, err := New(exec.Command("cmd", "/c", "echo HELLO"), OptTestErrorHandler(t))
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("cmd", "/c", "echo HELLO"), true)
 	tt.Expect("HELLO")
 	tt.ExpectExitCode(0)
 }
 
 func Test_ExpectRe(t *testing.T) {
-	tt, err := New(exec.Command("bash", "-c", "echo HELLO"), OptTestErrorHandler(t))
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("bash", "-c", "echo HELLO"), true)
 	tt.ExpectRe(regexp.MustCompile(`HEL(LO)`))
 	tt.ExpectExitCode(0)
 }
@@ -41,15 +38,13 @@ func Test_ExpectRe_Cmd(t *testing.T) {
 		t.Skip("Skipping test on non-windows platform")
 	}
 
-	tt, err := New(exec.Command("cmd", "/c", "echo HELLO"), OptTestErrorHandler(t))
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("cmd", "/c", "echo HELLO"), true)
 	tt.ExpectRe(regexp.MustCompile(`HEL(LO)`))
 	tt.ExpectExitCode(0)
 }
 
 func Test_ExpectInput(t *testing.T) {
-	tt, err := New(exec.Command("bash"), OptTestErrorHandler(t))
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("bash"), true)
 	tt.ExpectInput()
 	tt.SendLine("exit")
 	tt.ExpectExitCode(0)
@@ -60,8 +55,7 @@ func Test_ExpectInput_Cmd(t *testing.T) {
 		t.Skip("Skipping test on non-windows platform")
 	}
 
-	tt, err := New(exec.Command("cmd"), OptTestErrorHandler(t))
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("cmd"), true)
 	tt.ExpectInput()
 	tt.SendLine("exit")
 	tt.ExpectExitCode(0)
@@ -198,8 +192,7 @@ func Test_ExpectCustom_Cmd(t *testing.T) {
 }
 
 func Test_ExpectDontMatchInput(t *testing.T) {
-	tt, err := New(exec.Command("bash"))
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("bash"), true)
 
 	tt.SendLine("FOO=bar")
 	tt.ExpectInput() // Without this input will be matched
@@ -210,8 +203,7 @@ func Test_ExpectDontMatchInput(t *testing.T) {
 }
 
 func Test_ExpectMatchTwiceSameBuffer(t *testing.T) {
-	tt, err := New(exec.Command("bash"), OptVerboseLogging())
-	require.NoError(t, err)
+	tt := newTermTest(t, exec.Command("bash"), true)
 
 	tt.ExpectInput()
 
@@ -219,7 +211,7 @@ func Test_ExpectMatchTwiceSameBuffer(t *testing.T) {
 	tt.Expect("echo ONE TWO THREE", OptExpectTimeout(time.Second)) // Match stdin first
 
 	tt.Expect("ONE", OptExpectTimeout(time.Second))
-	err = tt.Expect("ONE", OptExpectTimeout(time.Second), OptExpectSilenceErrorHandler())
+	err := tt.Expect("ONE", OptExpectTimeout(time.Second), OptExpectSilenceErrorHandler())
 	require.ErrorIs(t, err, TimeoutError)
 
 	tt.Expect("TWO", OptExpectTimeout(time.Second))
