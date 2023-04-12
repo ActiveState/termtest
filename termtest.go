@@ -193,6 +193,14 @@ func (tt *TermTest) WaitIndefinitely() error {
 		time.Sleep(time.Millisecond * 100)
 	}
 
+	// wait outputProducer
+	// This should trigger listenError from being written to (on a goroutine)
+	tt.opts.Logger.Println("Closing outputProducer")
+	if err := tt.outputProducer.close(); err != nil {
+		return fmt.Errorf("failed to close output digester: %w", err)
+	}
+	tt.opts.Logger.Println("Closed outputProducer")
+
 	tt.opts.Logger.Println("Closing pty")
 	if err := tt.ptmx.Close(); err != nil {
 		if errors.Is(err, ERR_ACCESS_DENIED) {
@@ -203,14 +211,6 @@ func (tt *TermTest) WaitIndefinitely() error {
 		}
 	}
 	tt.opts.Logger.Println("Closed pty")
-
-	// wait outputProducer
-	// This should trigger listenError from being written to (on a goroutine)
-	tt.opts.Logger.Println("Closing outputProducer")
-	if err := tt.outputProducer.close(); err != nil {
-		return fmt.Errorf("failed to close output digester: %w", err)
-	}
-	tt.opts.Logger.Println("Closed outputProducer")
 
 	// listenError will be written to when the process exits, and this is the only reasonable place for us to
 	// catch listener errors
