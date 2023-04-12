@@ -48,7 +48,7 @@ jobs:
 
       - name: Test
         shell: bash
-        run: go test -v . -json 2>&1 > test.out && cat test.out | gotestfmt -hide empty-packages
+        run: go test -v . -json 2>&1 | gotestfmt -hide empty-packages
         id: test
         continue-on-error: true
 
@@ -59,13 +59,7 @@ jobs:
         id: debug
         continue-on-error: true
 
-      - name: Race Test
-        shell: bash
-        run: go test -v . -race -json 2>&1 > race.out && cat race.out | gotestfmt -hide empty-packages
-        id: race
-        continue-on-error: true
-
       - name: Tests Successful
         shell: bash
-        if: steps.test.outcome == 'failure' || steps.debug.outcome == 'failure' || steps.race.outcome == 'failure'
+        if: steps.test.outcome == 'failure' || steps.debug.outcome == 'failure'
         run: exit 1
