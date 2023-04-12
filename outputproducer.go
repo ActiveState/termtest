@@ -18,20 +18,20 @@ const producerBufferSize = 1024
 
 // outputProducer is responsible for keeping track of the output and notifying consumers when new output is produced
 type outputProducer struct {
-	snapshot  []byte
-	consumers []*outputConsumer
-	opts      *Opts
-	stop      chan struct{}
-	mutex     *sync.Mutex
+	snapshot   []byte
+	consumers  []*outputConsumer
+	opts       *Opts
+	mutex      *sync.Mutex
+	listenDone chan struct{}
 }
 
 func newOutputProducer(opts *Opts) *outputProducer {
 	return &outputProducer{
-		snapshot:  []byte{},
-		consumers: []*outputConsumer{},
-		stop:      make(chan struct{}, 1),
-		opts:      opts,
-		mutex:     &sync.Mutex{},
+		snapshot:   []byte{},
+		consumers:  []*outputConsumer{},
+		listenDone: make(chan struct{}, 1),
+		opts:       opts,
+		mutex:      &sync.Mutex{},
 	}
 }
 
@@ -41,7 +41,10 @@ func (o *outputProducer) Listen(r io.Reader) error {
 
 func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, interval time.Duration, size int) (rerr error) {
 	o.opts.Logger.Println("listen started")
-	defer func() { o.opts.Logger.Printf("listen stopped, err: %v\n", rerr) }()
+	defer func() {
+		o.opts.Logger.Printf("listen stopped, err: %v\n", rerr)
+		close(o.listenDone)
+	}()
 
 	br := bufio.NewReader(r)
 
@@ -49,18 +52,13 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 	// iteration
 	for {
 		o.opts.Logger.Println("listen: loop")
-		select {
-		case <-o.stop:
-			o.opts.Logger.Println("listen: closed called")
-			return nil
-		case <-time.After(interval):
-			o.opts.Logger.Println("listen: interval called")
-			if err := o.processNextRead(br, appendBuffer, size); err != nil {
-				if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
-					return nil
-				} else {
-					return fmt.Errorf("could not poll reader: %w", err)
-				}
+		<-time.After(interval)
+		o.opts.Logger.Println("listen: interval called")
+		if err := o.processNextRead(br, appendBuffer, size); err != nil {
+			if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
+				return nil
+			} else {
+				return fmt.Errorf("could not poll reader: %w", err)
 			}
 		}
 	}
@@ -146,9 +144,9 @@ func (o *outputProducer) close() error {
 		consumer.close()
 	}
 
-	o.opts.Logger.Printf("closing channel")
-	close(o.stop)
-	o.opts.Logger.Printf("channel closed")
+	o.opts.Logger.Printf("waiting for listen to finish")
+	<-o.listenDone
+	o.opts.Logger.Printf("listen finished")
 
 	return nil
 }
