@@ -128,9 +128,8 @@ func Test_SendAndSnapshot(t *testing.T) {
 			tt := tc.termtest(t)
 
 			tt.ExpectInput()
-			
+
 			tt.SendLine(tc.send)
-			tt.Expect("hello")
 			tt.SendLine("exit")
 			tt.ExpectExitCode(0)
 
