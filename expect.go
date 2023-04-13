@@ -105,6 +105,8 @@ func (tt *TermTest) ExpectCustom(consumer consumer, opts ...SetExpectOpt) (rerr 
 
 // Expect listens to the terminal output and returns once the expected value is found or a timeout occurs
 func (tt *TermTest) Expect(value string, opts ...SetExpectOpt) error {
+	tt.opts.Logger.Printf("Expect: %s\n", value)
+
 	return tt.ExpectCustom(func(buffer string) (int, error) {
 		return tt.expect(value, buffer)
 	}, opts...)
@@ -125,6 +127,8 @@ func (tt *TermTest) expect(value, buffer string) (endPos int, rerr error) {
 // ExpectRe listens to the terminal output and returns once the expected regular expression is matched or a timeout occurs
 // Default timeout is 10 seconds
 func (tt *TermTest) ExpectRe(rx *regexp.Regexp, opts ...SetExpectOpt) error {
+	tt.opts.Logger.Printf("ExpectRe: %s\n", rx.String())
+
 	return tt.ExpectCustom(func(buffer string) (int, error) {
 		return expectRe(rx, buffer)
 	}, opts...)
@@ -140,6 +144,8 @@ func expectRe(rx *regexp.Regexp, buffer string) (int, error) {
 
 // ExpectInput returns once a shell prompt is active on the terminal
 func (tt *TermTest) ExpectInput(opts ...SetExpectOpt) error {
+	tt.opts.Logger.Println("ExpectInput")
+
 	msg := "WaitForInput"
 
 	if err := tt.SendLine("echo " + msg); err != nil {
@@ -167,7 +173,7 @@ func (tt *TermTest) ExpectExit(opts ...SetExpectOpt) error {
 }
 
 func (tt *TermTest) expectExitCode(exitCode int, match bool, opts ...SetExpectOpt) (rerr error) {
-	tt.opts.Logger.Printf("Expecting exit code %d", exitCode)
+	tt.opts.Logger.Printf("Expecting exit code %d: %v", exitCode, match)
 	defer func() {
 		tt.opts.Logger.Printf("Expect exit code result: %s", unwrapErrorMessage(rerr))
 	}()

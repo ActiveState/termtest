@@ -229,6 +229,8 @@ func (tt *TermTest) Snapshot() string {
 
 // Send sends a new line to the terminal, as if a user typed it
 func (tt *TermTest) Send(value string) (rerr error) {
+	tt.opts.Logger.Printf("Send: %s\n", value)
+
 	tt.opts.Logger.Printf("Sending: %s", value)
 	_, err := tt.ptmx.Write([]byte(value))
 	return err
@@ -247,6 +249,7 @@ func (tt *TermTest) SendLine(value string) (rerr error) {
 // Note: On Windows the Ctrl-C event is only reliable caught when the receiving process is
 // listening for os.Interrupt signals.
 func (tt *TermTest) SendCtrlC() {
+	tt.opts.Logger.Printf("SendCtrlC\n")
 	tt.Send(string([]byte{0x03})) // 0x03 is ASCII character for ^C
 }
 
