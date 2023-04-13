@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -53,7 +54,8 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 	for {
 		o.opts.Logger.Println("listen: loop")
 		if err := o.processNextRead(br, appendBuffer, size); err != nil {
-			if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) {
+			pathError := &fs.PathError{}
+			if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) || (runtime.GOOS == "linux" && errors.As(err, &pathError)) {
 				o.opts.Logger.Println("listen: reached EOF")
 				return nil
 			} else {
