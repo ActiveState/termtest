@@ -3,6 +3,7 @@ package termtest
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -104,6 +105,7 @@ func Test_ExpectExitCode(t *testing.T) {
 
 func Test_SendAndSnapshot(t *testing.T) {
 	var cols uint16 = 20
+	strColWidth := strings.Repeat("o", int(cols))
 	tests := []struct {
 		name     string
 		termtest func(t *testing.T) *TermTest
@@ -119,8 +121,8 @@ func Test_SendAndSnapshot(t *testing.T) {
 		{
 			name:     "Long String",
 			termtest: func(t *testing.T) *TermTest { return newTermTest(t, exec.Command("bash"), true, OptCols(cols)) },
-			send:     "echo hellooooooooooooooooooooooo",
-			expect:   "hellooooooooooooooooooooooo",
+			send:     "echo " + strColWidth,
+			expect:   strColWidth,
 		},
 	}
 	for _, tc := range tests {
