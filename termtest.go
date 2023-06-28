@@ -227,6 +227,11 @@ func (tt *TermTest) Snapshot() string {
 	return string(tt.outputProducer.Snapshot())
 }
 
+// Output is similar to snapshot, except that it returns all output produced, rather than the current snapshot of output
+func (tt *TermTest) Output() string {
+	return string(tt.outputProducer.Output())
+}
+
 // Send sends a new line to the terminal, as if a user typed it
 func (tt *TermTest) Send(value string) (rerr error) {
 	tt.opts.Logger.Printf("Send: %s\n", value)

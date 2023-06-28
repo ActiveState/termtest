@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -159,4 +160,14 @@ func Test_Timeout(t *testing.T) {
 
 	tt.SendLine("exit")
 	tt.ExpectExitCode(0)
+}
+
+func Test_Snapshot_Output(t *testing.T) {
+	tt := newTermTest(t, exec.Command("bash", "-c", "echo MATCH1 MATCH2 MATCH3"), true)
+	tt.Expect("MATCH1")
+	assert.Equal(t, " MATCH2 MATCH3", strings.TrimRight(tt.Snapshot(), "\r\n"))
+	tt.Expect("MATCH2")
+	assert.Equal(t, " MATCH3", strings.TrimRight(tt.Snapshot(), "\r\n"))
+	tt.ExpectExitCode(0)
+	assert.Equal(t, "MATCH1 MATCH2 MATCH3", strings.TrimRight(tt.Output(), "\r\n"))
 }

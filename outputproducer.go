@@ -19,16 +19,17 @@ const producerBufferSize = 1024
 
 // outputProducer is responsible for keeping track of the output and notifying consumers when new output is produced
 type outputProducer struct {
-	snapshot   []byte
-	consumers  []*outputConsumer
-	opts       *Opts
-	mutex      *sync.Mutex
-	listenDone chan struct{}
+	output      []byte
+	snapshotPos int
+	consumers   []*outputConsumer
+	opts        *Opts
+	mutex       *sync.Mutex
+	listenDone  chan struct{}
 }
 
 func newOutputProducer(opts *Opts) *outputProducer {
 	return &outputProducer{
-		snapshot:   []byte{},
+		output:     []byte{},
 		consumers:  []*outputConsumer{},
 		listenDone: make(chan struct{}, 1),
 		opts:       opts,
@@ -89,7 +90,7 @@ func (o *outputProducer) processNextRead(r io.Reader, appendBuffer func([]byte) 
 }
 
 func (o *outputProducer) appendBuffer(value []byte) error {
-	o.snapshot = append(o.snapshot, value...)
+	o.output = append(o.output, value...)
 
 	o.opts.Logger.Printf("flushing %d output consumers", len(o.consumers))
 	defer o.opts.Logger.Println("flushed output consumers")
@@ -108,23 +109,24 @@ func (o *outputProducer) flushConsumers() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	if len(o.snapshot) == 0 {
+	snapshot := o.Snapshot()
+	if len(snapshot) == 0 {
 		o.opts.Logger.Println("no snapshot to flush")
 		return nil
 	}
 
 	for n, consumer := range o.consumers {
-		endPos, err := consumer.Report(o.snapshot)
+		endPos, err := consumer.Report(snapshot)
 		o.opts.Logger.Printf("consumer reported endpos: %d, err: %v", endPos, err)
 		if err != nil {
 			return fmt.Errorf("consumer threw error: %w", err)
 		}
 
 		if endPos > 0 {
-			if endPos > len(o.snapshot) {
-				return fmt.Errorf("consumer reported end position %d greater than snapshot length %d", endPos, len(o.snapshot))
+			if endPos > len(snapshot) {
+				return fmt.Errorf("consumer reported end position %d greater than snapshot length %d", endPos, len(o.output))
 			}
-			o.snapshot = o.snapshot[endPos:]
+			o.snapshotPos += endPos
 
 			// Drop consumer
 			o.opts.Logger.Printf("dropping consumer")
@@ -160,15 +162,17 @@ func (o *outputProducer) addConsumer(consume consumer, opts ...SetConsOpt) (*out
 	listener := newOutputConsumer(consume, opts...)
 	o.consumers = append(o.consumers, listener)
 
-	if len(o.snapshot) > 0 {
-		if err := o.flushConsumers(); err != nil {
-			return nil, fmt.Errorf("could not flush consumers: %w", err)
-		}
+	if err := o.flushConsumers(); err != nil {
+		return nil, fmt.Errorf("could not flush consumers: %w", err)
 	}
 
 	return listener, nil
 }
 
 func (o *outputProducer) Snapshot() []byte {
-	return o.snapshot
+	return o.output[o.snapshotPos:]
+}
+
+func (o *outputProducer) Output() []byte {
+	return o.output
 }
