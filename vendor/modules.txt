@@ -1,6 +1,6 @@
-# github.com/creack/pty v1.1.11 => github.com/ActiveState/pty v0.0.0-20230323202545-db6cfc0728c8
+# github.com/ActiveState/pty v0.0.0-20230628221854-6fb90eb08a14
 ## explicit; go 1.13
-github.com/creack/pty
+github.com/ActiveState/pty
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew

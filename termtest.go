@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/creack/pty"
+	"github.com/ActiveState/pty"
 )
 
 // TermTest bonds a command with a pseudo-terminal for automation
