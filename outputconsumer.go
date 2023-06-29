@@ -2,6 +2,7 @@ package termtest
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -14,6 +15,8 @@ type outputConsumer struct {
 	consume  consumer
 	waiter   chan error
 	opts     *OutputConsumerOpts
+	isalive  bool
+	mutex    *sync.Mutex
 }
 
 type OutputConsumerOpts struct {
@@ -42,7 +45,9 @@ func newOutputConsumer(consume consumer, opts ...SetConsOpt) *outputConsumer {
 			Opts:    NewOpts(),
 			Timeout: 5 * time.Second, // Default timeout
 		},
-		waiter: make(chan error, 1),
+		waiter:  make(chan error, 1),
+		isalive: true,
+		mutex:   &sync.Mutex{},
 	}
 
 	for _, optSetter := range opts {
@@ -52,8 +57,15 @@ func newOutputConsumer(consume consumer, opts ...SetConsOpt) *outputConsumer {
 	return oc
 }
 
+func (e *outputConsumer) IsAlive() bool {
+	return e.isalive
+}
+
 // Report will consume the given buffer and will block unless wait() has been called
 func (e *outputConsumer) Report(buffer []byte) (int, error) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	pos, err := e.consume(string(buffer))
 	if err != nil {
 		err = fmt.Errorf("meets threw error: %w", err)
@@ -82,10 +94,21 @@ func (e *outputConsumer) wait() error {
 	e.opts.Logger.Println("started waiting")
 	defer e.opts.Logger.Println("stopped waiting")
 
+	defer func() {
+		e.isalive = false
+		e.mutex.Unlock()
+	}()
+
 	select {
 	case err := <-e.waiter:
+		e.mutex.Lock()
+		if err != nil {
+			e.opts.Logger.Printf("Encountered error: %s\n", err.Error())
+		}
 		return err
 	case <-time.After(e.opts.Timeout):
+		e.mutex.Lock()
+		e.opts.Logger.Println("Encountered timeout")
 		return fmt.Errorf("after %s: %w", e.opts.Timeout, TimeoutError)
 	}
 }

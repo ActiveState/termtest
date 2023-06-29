@@ -109,13 +109,21 @@ func (o *outputProducer) flushConsumers() error {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 
-	snapshot := o.Snapshot()
-	if len(snapshot) == 0 {
-		o.opts.Logger.Println("no snapshot to flush")
-		return nil
-	}
+	for n := 0; n < len(o.consumers); n++ {
+		consumer := o.consumers[n]
+		snapshot := o.Snapshot() // o.Snapshot() considers the snapshotPos
+		if len(snapshot) == 0 {
+			o.opts.Logger.Println("no snapshot to flush")
+			return nil
+		}
 
-	for n, consumer := range o.consumers {
+		if !consumer.IsAlive() {
+			o.opts.Logger.Printf("dropping consumer %d out of %d as it is no longer alive", n, len(o.consumers))
+			o.consumers = append(o.consumers[:n], o.consumers[n+1:]...)
+			n--
+			continue
+		}
+
 		endPos, err := consumer.Report(snapshot)
 		o.opts.Logger.Printf("consumer reported endpos: %d, err: %v", endPos, err)
 		if err != nil {
@@ -129,8 +137,9 @@ func (o *outputProducer) flushConsumers() error {
 			o.snapshotPos += endPos
 
 			// Drop consumer
-			o.opts.Logger.Printf("dropping consumer")
+			o.opts.Logger.Printf("dropping consumer %d out of %d", n, len(o.consumers))
 			o.consumers = append(o.consumers[:n], o.consumers[n+1:]...)
+			n--
 		}
 	}
 
