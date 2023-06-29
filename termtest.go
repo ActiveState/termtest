@@ -32,6 +32,7 @@ type Opts struct {
 	Cols               uint16
 	Rows               uint16
 	Posix              bool
+	DefaultTimeout     time.Duration
 }
 
 var TimeoutError = errors.New("timeout")
@@ -47,9 +48,10 @@ func NewOpts() *Opts {
 		ExpectErrorHandler: func(_ *TermTest, err error) error {
 			panic(err)
 		},
-		Cols:  DefaultCols,
-		Rows:  DefaultRows,
-		Posix: runtime.GOOS != "windows",
+		Cols:           DefaultCols,
+		Rows:           DefaultRows,
+		Posix:          runtime.GOOS != "windows",
+		DefaultTimeout: 5 * time.Second,
 	}
 }
 
@@ -131,6 +133,14 @@ func OptSilenceErrorHandler() SetOpt {
 func OptPosix(v bool) SetOpt {
 	return func(o *Opts) error {
 		o.Posix = v
+		return nil
+	}
+}
+
+// OptDefaultTimeout sets the default timeout
+func OptDefaultTimeout(duration time.Duration) SetOpt {
+	return func(o *Opts) error {
+		o.DefaultTimeout = duration
 		return nil
 	}
 }

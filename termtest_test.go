@@ -162,6 +162,15 @@ func Test_Timeout(t *testing.T) {
 	tt.ExpectExitCode(0)
 }
 
+func Test_DefaultTimeout(t *testing.T) {
+	tt := newTermTest(t, exec.Command("bash", "-c", "sleep .5 && echo MATCH"), true, OptDefaultTimeout(100*time.Millisecond))
+	err := tt.Expect("MATCH", OptExpectSilenceErrorHandler())
+	require.Error(t, err)
+	require.ErrorIs(t, err, TimeoutError)
+	time.Sleep(500 * time.Millisecond)
+	tt.Expect("MATCH")
+}
+
 func Test_Snapshot_Output(t *testing.T) {
 	tt := newTermTest(t, exec.Command("bash", "-c", "echo MATCH1 MATCH2 MATCH3"), true)
 	tt.Expect("MATCH1")

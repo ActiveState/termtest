@@ -90,6 +90,7 @@ func (tt *TermTest) expectErrorHandler(rerr *error, opts *ExpectOpts) {
 }
 
 func (tt *TermTest) ExpectCustom(consumer consumer, opts ...SetExpectOpt) (rerr error) {
+	opts = append([]SetExpectOpt{OptExpectTimeout(tt.opts.DefaultTimeout)}, opts...)
 	expectOpts, err := NewExpectOpts(opts...)
 	defer tt.expectErrorHandler(&rerr, expectOpts)
 	if err != nil {
@@ -184,7 +185,7 @@ func (tt *TermTest) expectExitCode(exitCode int, match bool, opts ...SetExpectOp
 		return fmt.Errorf("could not create expect options: %w", err)
 	}
 
-	timeoutV := 5 * time.Second
+	timeoutV := tt.opts.DefaultTimeout
 	if expectOpts.Timeout > 0 {
 		timeoutV = expectOpts.Timeout
 	}
