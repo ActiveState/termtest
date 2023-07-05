@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/ActiveState/pty v0.0.0-20230628221854-6fb90eb08a14
+	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/goleak v1.2.0
 	golang.org/x/sys v0.0.0-20220721230656-c6bc011c0c49
