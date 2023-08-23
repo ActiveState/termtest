@@ -74,12 +74,12 @@ func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer 
 	n, errRead := r.Read(snapshot)
 	if n > 0 {
 		o.opts.Logger.Printf("outputProducer read %d bytes from pty, value: %s", n, snapshot[:n])
+		if _, err := w.Write(snapshot[:n]); err != nil {
+			return fmt.Errorf("could not write: %w", err)
+		}
 		snapshot = cleanPtySnapshot(snapshot[:n], o.opts.Posix)
 		if err := appendBuffer(snapshot); err != nil {
 			return fmt.Errorf("could not append buffer: %w", err)
-		}
-		if _, err := w.Write(snapshot[:n]); err != nil {
-			return fmt.Errorf("could not write: %w", err)
 		}
 	}
 
