@@ -90,3 +90,10 @@ func boolToInt(b bool) int {
 	}
 	return 0
 }
+
+type BlackholeWriter struct {
+}
+
+func (BlackholeWriter) Write(p []byte) (int, error) {
+	return len(p), nil
+}

@@ -37,11 +37,11 @@ func newOutputProducer(opts *Opts) *outputProducer {
 	}
 }
 
-func (o *outputProducer) Listen(r io.Reader) error {
-	return o.listen(r, o.appendBuffer, producerPollInterval, producerBufferSize)
+func (o *outputProducer) Listen(r io.Reader, w io.Writer) error {
+	return o.listen(r, w, o.appendBuffer, producerPollInterval, producerBufferSize)
 }
 
-func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, interval time.Duration, size int) (rerr error) {
+func (o *outputProducer) listen(r io.Reader, w io.Writer, appendBuffer func([]byte) error, interval time.Duration, size int) (rerr error) {
 	o.opts.Logger.Println("listen started")
 	defer func() {
 		o.opts.Logger.Printf("listen stopped, err: %v\n", rerr)
@@ -54,7 +54,7 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 	// iteration
 	for {
 		o.opts.Logger.Println("listen: loop")
-		if err := o.processNextRead(br, appendBuffer, size); err != nil {
+		if err := o.processNextRead(br, w, appendBuffer, size); err != nil {
 			pathError := &fs.PathError{}
 			if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) || (runtime.GOOS == "linux" && errors.As(err, &pathError)) {
 				o.opts.Logger.Println("listen: reached EOF")
@@ -66,7 +66,7 @@ func (o *outputProducer) listen(r io.Reader, appendBuffer func([]byte) error, in
 	}
 }
 
-func (o *outputProducer) processNextRead(r io.Reader, appendBuffer func([]byte) error, size int) error {
+func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer func([]byte) error, size int) error {
 	o.opts.Logger.Printf("processNextRead started with size: %d\n", size)
 	defer o.opts.Logger.Println("processNextRead stopped")
 
@@ -77,6 +77,9 @@ func (o *outputProducer) processNextRead(r io.Reader, appendBuffer func([]byte) 
 		snapshot = cleanPtySnapshot(snapshot[:n], o.opts.Posix)
 		if err := appendBuffer(snapshot); err != nil {
 			return fmt.Errorf("could not append buffer: %w", err)
+		}
+		if _, err := w.Write(snapshot[:n]); err != nil {
+			return fmt.Errorf("could not write: %w", err)
 		}
 	}
 

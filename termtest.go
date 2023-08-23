@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ActiveState/pty"
+	"github.com/hinshun/vt10x"
 )
 
 // TermTest bonds a command with a pseudo-terminal for automation
@@ -154,8 +155,9 @@ func (tt *TermTest) start() error {
 	if err != nil {
 		return fmt.Errorf("could not start pty: %w", err)
 	}
-
 	tt.ptmx = ptmx
+
+	term := vt10x.New(vt10x.WithWriter(ptmx))
 
 	// Start listening for output
 	wg := &sync.WaitGroup{}
@@ -163,7 +165,7 @@ func (tt *TermTest) start() error {
 	go func() {
 		defer tt.opts.Logger.Printf("termtest finished listening")
 		wg.Done()
-		err := tt.outputProducer.Listen(tt.ptmx)
+		err := tt.outputProducer.Listen(tt.ptmx, term)
 		tt.listenError <- err
 	}()
 	wg.Wait()

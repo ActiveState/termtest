@@ -58,7 +58,7 @@ func Test_outputProducer_listen(t *testing.T) {
 				return nil
 			}
 			op := tt.op(t)
-			err := op.listen(tt.reader, appendV, producerInterval, bufferSize)
+			err := op.listen(tt.reader, &BlackholeWriter{}, appendV, producerInterval, bufferSize)
 			if errors.Is(err, io.EOF) {
 				err = nil
 			}
