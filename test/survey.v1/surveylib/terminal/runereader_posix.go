@@ -62,10 +62,12 @@ func (rr *RuneReader) RestoreTermMode() error {
 }
 
 func (rr *RuneReader) ReadRune() (rune, int, error) {
+	fmt.Println("ReadRune from state reader")
 	r, size, err := rr.state.reader.ReadRune()
 	if err != nil {
 		return r, size, err
 	}
+	fmt.Println("Got ReadRune from state reader")
 
 	// parse ^[ sequences to look for arrow keys
 	if r == '\033' {

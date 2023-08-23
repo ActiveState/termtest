@@ -21,4 +21,4 @@ require (
 
 replace github.com/ActiveState/termtest => ../../
 
-replace gopkg.in/AlecAivazis/survey.v1 => ./surveylib
+//replace gopkg.in/AlecAivazis/survey.v1 => ./surveylib

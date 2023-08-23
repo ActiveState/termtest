@@ -166,32 +166,25 @@ func (c *Cursor) Size(buf *bytes.Buffer) (*Coord, error) {
 	// of the terminal, ask for the current location and then move the
 	// cursor back where we started
 
-	fmt.Println(1)
 	// hide the cursor (so it doesn't blink when getting the size of the terminal)
 	c.Hide()
-	fmt.Println(2)
 	// save the current location of the cursor
 	c.Save()
-	fmt.Println(3)
 
 	// move the cursor to the very bottom of the terminal
 	c.Move(999, 999)
-	fmt.Println(4)
 
 	// ask for the current location
 	bottom, err := c.Location(buf)
-	fmt.Println(5)
 	if err != nil {
 		return nil, err
 	}
 
 	// move back where we began
 	c.Restore()
-	fmt.Println(6)
 
 	// show the cursor
 	c.Show()
-	fmt.Println(7)
 	// sice the bottom was calcuated in the lower right corner, it
 	// is the dimensions we are looking for
 	return bottom, nil

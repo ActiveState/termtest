@@ -38,19 +38,24 @@ func (rr *RuneReader) ReadLine(mask rune) ([]rune, error) {
 		In:  rr.stdio.In,
 		Out: rr.stdio.Out,
 	}
-	rr.Buffer()
 
+	fmt.Println("Ask for size")
 	// we get the terminal width and height (if resized after this point the property might become invalid)
 	terminalSize, _ := cursor.Size(rr.Buffer())
+	fmt.Println("Got size")
+	fmt.Println("Ask for location")
 	// we set the current location of the cursor once
 	cursorCurrent, _ := cursor.Location(rr.Buffer())
+	fmt.Println("Got location")
 
 	for {
+		fmt.Println("ReadRune")
 		// wait for some input
 		r, _, err := rr.ReadRune()
 		if err != nil {
 			return line, err
 		}
+		fmt.Println("ReadRune response")
 		// increment cursor location
 		cursorCurrent.X++
 
