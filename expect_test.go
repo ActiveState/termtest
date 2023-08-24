@@ -43,24 +43,6 @@ func Test_ExpectRe_Cmd(t *testing.T) {
 	tt.ExpectExitCode(0)
 }
 
-func Test_ExpectInput(t *testing.T) {
-	tt := newTermTest(t, exec.Command("bash"), true)
-	tt.ExpectInput()
-	tt.SendLine("exit")
-	tt.ExpectExitCode(0)
-}
-
-func Test_ExpectInput_Cmd(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("Skipping test on non-windows platform")
-	}
-
-	tt := newTermTest(t, exec.Command("cmd"), true)
-	tt.ExpectInput()
-	tt.SendLine("exit")
-	tt.ExpectExitCode(0)
-}
-
 func Test_ExpectCustom(t *testing.T) {
 	customErr := fmt.Errorf("custom error")
 
@@ -191,21 +173,10 @@ func Test_ExpectCustom_Cmd(t *testing.T) {
 	}
 }
 
-func Test_ExpectDontMatchInput(t *testing.T) {
-	tt := newTermTest(t, exec.Command("bash"), true)
-
-	tt.SendLine("FOO=bar")
-	tt.ExpectInput() // Without this input will be matched
-	expectError := tt.Expect("FOO=bar", OptExpectTimeout(100*time.Millisecond), OptExpectSilenceErrorHandler())
-	require.ErrorIs(t, expectError, TimeoutError, "Should have thrown an expect timeout error because FOO=bar was only sent via STDIN, snapshot: %s", tt.Snapshot())
-	tt.SendLine("exit")
-	tt.ExpectExitCode(0)
-}
-
 func Test_ExpectMatchTwiceSameBuffer(t *testing.T) {
-	tt := newTermTest(t, exec.Command("bash"), true)
+	tt := newTermTest(t, exec.Command("bash"), false)
 
-	tt.ExpectInput()
+	tt.Expect("$") // Wait for bash to be ready, so we don't timeout on bash startup
 
 	tt.SendLine("echo ONE TWO THREE")
 	tt.Expect("echo ONE TWO THREE", OptExpectTimeout(time.Second)) // Match stdin first

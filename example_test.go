@@ -14,7 +14,6 @@ func Test_Basic(t *testing.T) {
 	tt, err := termtest.New(exec.Command("bash"), termtest.OptTestErrorHandler(t))
 	require.NoError(t, err)
 
-	tt.ExpectInput()
 	tt.SendLine("echo ABC")
 	tt.Expect("ABC")
 	tt.SendLine("echo DEF")
@@ -28,7 +27,7 @@ func Test_DontMatchInput(t *testing.T) {
 	require.NoError(t, err)
 
 	tt.SendLine("FOO=bar")
-	tt.ExpectInput() // Without this input will be matched
+	tt.Expect("FOO=bar") // This matches the input, not the output
 	expectError := tt.Expect("FOO=bar",
 		// options:
 		termtest.OptExpectTimeout(100*time.Millisecond),

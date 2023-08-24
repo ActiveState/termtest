@@ -187,8 +187,7 @@ func (tt *TermTest) start() error {
 	}
 	tt.ptmx = ptmx
 
-	tt.term = vt10x.New(vt10x.WithWriter(ptmx))
-	tt.term.Resize(tt.opts.Cols, tt.opts.Rows)
+	tt.term = vt10x.New(vt10x.WithWriter(ptmx), vt10x.WithSize(tt.opts.Cols, tt.opts.Rows))
 
 	// Start listening for output
 	wg := &sync.WaitGroup{}

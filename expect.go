@@ -143,21 +143,6 @@ func expectRe(rx *regexp.Regexp, buffer string) (int, error) {
 	return idx[1], nil
 }
 
-// ExpectInput returns once a shell prompt is active on the terminal
-func (tt *TermTest) ExpectInput(opts ...SetExpectOpt) error {
-	tt.opts.Logger.Println("ExpectInput")
-
-	msg := "WaitForInput"
-
-	if err := tt.SendLine("echo " + msg); err != nil {
-		return fmt.Errorf("could not send line to terminal: %w", err)
-	}
-
-	tt.Expect(msg) // Ignore first match, as it's our input
-
-	return tt.Expect(msg, opts...)
-}
-
 // ExpectExitCode waits for the program under test to terminate, and checks that the returned exit code meets expectations
 func (tt *TermTest) ExpectExitCode(exitCode int, opts ...SetExpectOpt) error {
 	return tt.expectExitCode(exitCode, true, opts...)

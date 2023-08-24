@@ -131,8 +131,6 @@ func Test_SendAndOutput(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tt := tc.termtest(t)
 
-			tt.ExpectInput()
-
 			tt.SendLine(tc.send)
 			tt.SendLine("exit")
 			tt.ExpectExitCode(0)
