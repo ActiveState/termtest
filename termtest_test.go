@@ -3,6 +3,7 @@ package termtest
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -105,8 +106,8 @@ func Test_ExpectExitCode(t *testing.T) {
 }
 
 func Test_SendAndOutput(t *testing.T) {
-	var cols uint16 = 20
-	strColWidth := strings.Repeat("o", int(cols))
+	var cols int = 20
+	strColWidth := strings.Repeat("o", cols)
 	tests := []struct {
 		name     string
 		termtest func(t *testing.T) *TermTest
@@ -180,4 +181,21 @@ func Test_PendingOutput_Output_Snapshot(t *testing.T) {
 	tt.ExpectExitCode(0)
 	assert.Equal(t, "MATCH1 MATCH2 MATCH3", strings.TrimRight(tt.Output(), "\r\n"))
 	assert.Contains(t, strings.TrimRight(tt.Snapshot(), "\r\n"), "MATCH1 MATCH2 MATCH3")
+}
+
+func Test_ColSize(t *testing.T) {
+	size := 1000
+	shell := "bash"
+	if runtime.GOOS == "windows" {
+		shell = "cmd.exe"
+	}
+	tt := newTermTest(t, exec.Command(shell), true, OptCols(size))
+	v := strings.Repeat("a", size)
+	tt.SendLine("echo " + v)
+	tt.Expect(v)
+	tt.SendLine("exit")
+	tt.ExpectExitCode(0)
+
+	// Also test that the terminal snapshot has the right col size
+	require.Contains(t, tt.Snapshot(), v)
 }
