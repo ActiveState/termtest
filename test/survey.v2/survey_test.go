@@ -26,7 +26,7 @@ func Test_Survey(t *testing.T) {
 	}
 
 	// We run this on a loop in order to surface potential race conditions between expect, send and the terminal emulator
-	// See commit 90f0511212539829317b2652d57785c7a3cc71f8
+	// See commit ce7a90a87918c7a5ae7a127fe7391abaa59b1ea7
 	for x := 0; x < 10; x++ {
 		t.Run(fmt.Sprintf("Test %d", x), func(t *testing.T) {
 			tt.SetTest(t)
