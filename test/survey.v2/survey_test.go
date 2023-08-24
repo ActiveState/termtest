@@ -20,7 +20,7 @@ func Test_Survey(t *testing.T) {
 		t.Fatal("unable to get the current filename")
 	}
 	cmd := exec.Command("go", "run", filepath.Join(filepath.Dir(filename), "survey.go"))
-	tt, err := termtest.New(cmd, termtest.OptTestErrorHandler(t))
+	tt, err := termtest.New(cmd, termtest.OptSetTest(t))
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -28,9 +28,12 @@ func Test_Survey(t *testing.T) {
 	// We run this on a loop in order to surface potential race conditions between expect, send and the terminal emulator
 	// See commit 90f0511212539829317b2652d57785c7a3cc71f8
 	for x := 0; x < 10; x++ {
-		tt.Expect(fmt.Sprintf("Confirm %d?", x))
-		tt.SendLine("y")
-		tt.Expect(fmt.Sprintf("Answer %d: true", x))
+		t.Run(fmt.Sprintf("Test %d", x), func(t *testing.T) {
+			tt.SetTest(t)
+			tt.Expect(fmt.Sprintf("Confirm %d?", x))
+			tt.SendLine("y")
+			tt.Expect(fmt.Sprintf("Answer %d: true", x))
+		})
 	}
 	tt.ExpectExitCode(0)
 }

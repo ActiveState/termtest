@@ -98,6 +98,22 @@ func OptVerboseLogging() SetOpt {
 	}
 }
 
+type testLogger struct {
+	t *testing.T
+}
+
+func (l *testLogger) Write(p []byte) (n int, err error) {
+	l.t.Log(string(p))
+	return len(p), nil
+}
+
+func OptSetTest(t *testing.T) SetOpt {
+	return func(o *Opts) error {
+		setTest(o, t)
+		return nil
+	}
+}
+
 func OptErrorHandler(handler ErrorHandler) SetOpt {
 	return func(o *Opts) error {
 		o.ExpectErrorHandler = handler
@@ -144,6 +160,19 @@ func OptDefaultTimeout(duration time.Duration) SetOpt {
 		o.DefaultTimeout = duration
 		return nil
 	}
+}
+
+func (tt *TermTest) SetErrorHandler(handler ErrorHandler) {
+	tt.opts.ExpectErrorHandler = handler
+}
+
+func (tt *TermTest) SetTest(t *testing.T) {
+	setTest(tt.opts, t)
+}
+
+func setTest(o *Opts, t *testing.T) {
+	o.Logger = log.New(&testLogger{t}, "TermTest: ", log.LstdFlags|log.Lshortfile)
+	o.ExpectErrorHandler = TestErrorHandler(t)
 }
 
 func (tt *TermTest) start() error {
@@ -246,9 +275,10 @@ func (tt *TermTest) Output() string {
 
 // Send sends a new line to the terminal, as if a user typed it
 func (tt *TermTest) Send(value string) (rerr error) {
+	// Todo: Drop this sleep and figure out why without this we seem to be running into a race condition.
+	// Disabling this sleep will make survey_test.go fail on occasion (rerun it a few times).
+	time.Sleep(time.Millisecond)
 	tt.opts.Logger.Printf("Send: %s\n", value)
-
-	tt.opts.Logger.Printf("Sending: %s", value)
 	_, err := tt.ptmx.Write([]byte(value))
 	return err
 }
