@@ -104,7 +104,7 @@ func Test_ExpectExitCode(t *testing.T) {
 	}
 }
 
-func Test_SendAndSnapshot(t *testing.T) {
+func Test_SendAndOutput(t *testing.T) {
 	var cols uint16 = 20
 	strColWidth := strings.Repeat("o", int(cols))
 	tests := []struct {
@@ -136,8 +136,8 @@ func Test_SendAndSnapshot(t *testing.T) {
 			tt.SendLine("exit")
 			tt.ExpectExitCode(0)
 
-			snapshot := tt.Snapshot()
-			require.Contains(t, snapshot, tc.expect, fmt.Sprintf("Expected: %s\nSnapshot: %s\n", tc.expect, snapshot))
+			output := tt.Output()
+			require.Contains(t, output, tc.expect, fmt.Sprintf("Expected: %s\nOutput: %s\n", tc.expect, output))
 		})
 	}
 }
@@ -171,12 +171,13 @@ func Test_DefaultTimeout(t *testing.T) {
 	tt.Expect("MATCH")
 }
 
-func Test_Snapshot_Output(t *testing.T) {
+func Test_PendingOutput_Output_Snapshot(t *testing.T) {
 	tt := newTermTest(t, exec.Command("bash", "-c", "echo MATCH1 MATCH2 MATCH3"), true)
 	tt.Expect("MATCH1")
-	assert.Equal(t, " MATCH2 MATCH3", strings.TrimRight(tt.Snapshot(), "\r\n"))
+	assert.Equal(t, " MATCH2 MATCH3", strings.TrimRight(tt.PendingOutput(), "\r\n"))
 	tt.Expect("MATCH2")
-	assert.Equal(t, " MATCH3", strings.TrimRight(tt.Snapshot(), "\r\n"))
+	assert.Equal(t, " MATCH3", strings.TrimRight(tt.PendingOutput(), "\r\n"))
 	tt.ExpectExitCode(0)
 	assert.Equal(t, "MATCH1 MATCH2 MATCH3", strings.TrimRight(tt.Output(), "\r\n"))
+	assert.Contains(t, strings.TrimRight(tt.Snapshot(), "\r\n"), "MATCH1 MATCH2 MATCH3")
 }

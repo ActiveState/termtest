@@ -19,6 +19,7 @@ import (
 // TermTest bonds a command with a pseudo-terminal for automation
 type TermTest struct {
 	cmd            *exec.Cmd
+	term           vt10x.Terminal
 	ptmx           pty.Pty
 	outputProducer *outputProducer
 	listenError    chan error
@@ -186,7 +187,7 @@ func (tt *TermTest) start() error {
 	}
 	tt.ptmx = ptmx
 
-	term := vt10x.New(vt10x.WithWriter(ptmx))
+	tt.term = vt10x.New(vt10x.WithWriter(ptmx))
 
 	// Start listening for output
 	wg := &sync.WaitGroup{}
@@ -194,7 +195,7 @@ func (tt *TermTest) start() error {
 	go func() {
 		defer tt.opts.Logger.Printf("termtest finished listening")
 		wg.Done()
-		err := tt.outputProducer.Listen(tt.ptmx, term)
+		err := tt.outputProducer.Listen(tt.ptmx, tt.term)
 		tt.listenError <- err
 	}()
 	wg.Wait()
@@ -265,6 +266,11 @@ func (tt *TermTest) Cmd() *exec.Cmd {
 
 // Snapshot returns a string containing a terminal snapshot as a user would see it in a "real" terminal
 func (tt *TermTest) Snapshot() string {
+	return tt.term.String()
+}
+
+// PendingOutput returns any output produced that has not yet been matched against
+func (tt *TermTest) PendingOutput() string {
 	return string(tt.outputProducer.Snapshot())
 }
 
