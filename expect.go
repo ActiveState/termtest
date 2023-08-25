@@ -68,7 +68,7 @@ func OptExpectSilenceErrorHandler() SetExpectOpt {
 	}
 }
 
-func (tt *TermTest) expectErrorHandler(rerr *error, opts *ExpectOpts) {
+func (tt *TermTest) ExpectErrorHandler(rerr *error, opts *ExpectOpts) {
 	err := *rerr
 	if err == nil {
 		return
@@ -92,7 +92,7 @@ func (tt *TermTest) expectErrorHandler(rerr *error, opts *ExpectOpts) {
 func (tt *TermTest) ExpectCustom(consumer consumer, opts ...SetExpectOpt) (rerr error) {
 	opts = append([]SetExpectOpt{OptExpectTimeout(tt.opts.DefaultTimeout)}, opts...)
 	expectOpts, err := NewExpectOpts(opts...)
-	defer tt.expectErrorHandler(&rerr, expectOpts)
+	defer tt.ExpectErrorHandler(&rerr, expectOpts)
 	if err != nil {
 		return fmt.Errorf("could not create expect options: %w", err)
 	}
@@ -165,7 +165,7 @@ func (tt *TermTest) expectExitCode(exitCode int, match bool, opts ...SetExpectOp
 	}()
 
 	expectOpts, err := NewExpectOpts(opts...)
-	defer tt.expectErrorHandler(&rerr, expectOpts)
+	defer tt.ExpectErrorHandler(&rerr, expectOpts)
 	if err != nil {
 		return fmt.Errorf("could not create expect options: %w", err)
 	}
