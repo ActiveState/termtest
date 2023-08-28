@@ -1,8 +1,8 @@
-//go:build windowsx
-// +build windowsx
+//go:build !windows
+// +build !windows
 
 package termtest
 
-func SyscallErrorCode(err error) int {
+func syscallErrorCode(err error) int {
 	return -1
 }
