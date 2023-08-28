@@ -281,11 +281,17 @@ func (tt *TermTest) Output() string {
 
 // Send sends a new line to the terminal, as if a user typed it
 func (tt *TermTest) Send(value string) (rerr error) {
+	expectOpts, err := NewExpectOpts()
+	defer tt.ExpectErrorHandler(&rerr, expectOpts)
+	if err != nil {
+		return fmt.Errorf("could not create expect options: %w", err)
+	}
+
 	// Todo: Drop this sleep and figure out why without this we seem to be running into a race condition.
 	// Disabling this sleep will make survey_test.go fail on occasion (rerun it a few times).
 	time.Sleep(time.Millisecond)
 	tt.opts.Logger.Printf("Send: %s\n", value)
-	_, err := tt.ptmx.Write([]byte(value))
+	_, err = tt.ptmx.Write([]byte(value))
 	return err
 }
 
