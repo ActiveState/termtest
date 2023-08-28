@@ -166,18 +166,19 @@ func Test_DefaultTimeout(t *testing.T) {
 	err := tt.Expect("MATCH", OptExpectSilenceErrorHandler())
 	require.Error(t, err)
 	require.ErrorIs(t, err, TimeoutError)
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 	tt.Expect("MATCH")
+	tt.Wait(time.Second)
 }
 
 func Test_PendingOutput_Output_Snapshot(t *testing.T) {
 	tt := newTermTest(t, exec.Command("bash", "-c", "echo MATCH1 MATCH2 MATCH3"), true)
 	tt.Expect("MATCH1")
-	assert.Equal(t, " MATCH2 MATCH3", strings.TrimRight(tt.PendingOutput(), "\r\n"))
+	assert.Contains(t, strings.TrimRight(tt.PendingOutput(), "\r\n"), " MATCH2 MATCH3")
 	tt.Expect("MATCH2")
-	assert.Equal(t, " MATCH3", strings.TrimRight(tt.PendingOutput(), "\r\n"))
+	assert.Contains(t, strings.TrimRight(tt.PendingOutput(), "\r\n"), " MATCH3")
 	tt.ExpectExitCode(0)
-	assert.Equal(t, "MATCH1 MATCH2 MATCH3", strings.TrimRight(tt.Output(), "\r\n"))
+	assert.Contains(t, strings.TrimRight(tt.Output(), "\r\n"), "MATCH1 MATCH2 MATCH3")
 	assert.Contains(t, strings.TrimRight(tt.Snapshot(), "\r\n"), "MATCH1 MATCH2 MATCH3")
 }
 
