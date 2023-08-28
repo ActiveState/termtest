@@ -68,10 +68,10 @@ func OptExpectSilenceErrorHandler() SetExpectOpt {
 	}
 }
 
-func (tt *TermTest) ExpectErrorHandler(rerr *error, opts *ExpectOpts) {
+func (tt *TermTest) ExpectErrorHandler(rerr *error, opts *ExpectOpts) error {
 	err := *rerr
 	if err == nil {
-		return
+		return nil
 	}
 
 	// Sanitize error messages so we can easily interpret the results
@@ -86,7 +86,7 @@ func (tt *TermTest) ExpectErrorHandler(rerr *error, opts *ExpectOpts) {
 	}
 
 	*rerr = errorHandler(tt, err)
-	return
+	return *rerr
 }
 
 func (tt *TermTest) ExpectCustom(consumer consumer, opts ...SetExpectOpt) (rerr error) {
