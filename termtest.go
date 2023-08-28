@@ -237,7 +237,9 @@ func (tt *TermTest) WaitIndefinitely() error {
 
 	tt.opts.Logger.Println("Closing pty")
 	if err := tt.ptmx.Close(); err != nil {
-		if errors.Is(err, ERR_ACCESS_DENIED) {
+		if syscallErrorCode(err) == 0 {
+			tt.opts.Logger.Println("Ignoring 'The operation completed successfully' error")
+		} else if errors.Is(err, ERR_ACCESS_DENIED) {
 			// Ignore access denied error - means process has already finished
 			tt.opts.Logger.Println("Ignoring access denied error")
 		} else {
