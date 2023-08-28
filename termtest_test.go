@@ -99,7 +99,7 @@ func Test_ExpectExitCode(t *testing.T) {
 
 			// Without this goleak will complain about a goroutine leak because the command will still be running
 			if tc.exitAfter {
-				require.NoError(t, tt.Wait(5*time.Second), "Snapshot: %s", tt.Snapshot())
+				require.NoError(t, tt.Wait(5*time.Second), "Output: %s", tt.Output())
 			}
 		})
 	}

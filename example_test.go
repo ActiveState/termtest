@@ -33,7 +33,7 @@ func Test_DontMatchInput(t *testing.T) {
 		termtest.OptExpectTimeout(100*time.Millisecond),
 		termtest.OptExpectErrorHandler(termtest.SilenceErrorHandler()), // Prevent errors from bubbling up as panics
 	)
-	require.ErrorIs(t, expectError, termtest.TimeoutError, "Should have thrown an expect timeout error because FOO=bar was only sent via STDIN, snapshot: %s", tt.Snapshot())
+	require.ErrorIs(t, expectError, termtest.TimeoutError, "Should have thrown an expect timeout error because FOO=bar was only sent via STDIN, output: %s", tt.Output())
 
 	tt.SendLine("exit")
 	tt.ExpectExitCode(0)

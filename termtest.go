@@ -81,7 +81,7 @@ func New(cmd *exec.Cmd, opts ...SetOpt) (*TermTest, error) {
 
 func TestErrorHandler(t *testing.T) ErrorHandler {
 	return func(tt *TermTest, err error) error {
-		t.Errorf("Error encountered: %s\nSnapshot: %s\nStack: %s", unwrapErrorMessage(err), tt.Snapshot(), debug.Stack())
+		t.Errorf("Error encountered: %s\nOutput: %s\nStack: %s", unwrapErrorMessage(err), tt.Output(), debug.Stack())
 		return err
 	}
 }
@@ -273,7 +273,7 @@ func (tt *TermTest) Snapshot() string {
 
 // PendingOutput returns any output produced that has not yet been matched against
 func (tt *TermTest) PendingOutput() string {
-	return string(tt.outputProducer.Snapshot())
+	return string(tt.outputProducer.PendingOutput())
 }
 
 // Output is similar to snapshot, except that it returns all output produced, rather than the current snapshot of output

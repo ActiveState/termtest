@@ -50,7 +50,7 @@ func newTestOpts(o *Opts, t *testing.T) *Opts {
 	}
 	o.Logger = log.New(os.Stderr, filepath.Base(t.Name())+": ", log.Ltime|log.Lmicroseconds|log.Lshortfile)
 	o.ExpectErrorHandler = func(t *TermTest, err error) error {
-		return fmt.Errorf("Error encountered: %w\nSnapshot: %s", err, t.Snapshot())
+		return fmt.Errorf("Error encountered: %w\nOutput: %s", err, t.Output())
 	}
 	return o
 }
