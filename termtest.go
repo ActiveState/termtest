@@ -35,6 +35,7 @@ type Opts struct {
 	Rows               int
 	Posix              bool
 	DefaultTimeout     time.Duration
+	OutputSanitizer    func([]byte) ([]byte, error)
 }
 
 var TimeoutError = errors.New("timeout")
@@ -159,6 +160,13 @@ func OptPosix(v bool) SetOpt {
 func OptDefaultTimeout(duration time.Duration) SetOpt {
 	return func(o *Opts) error {
 		o.DefaultTimeout = duration
+		return nil
+	}
+}
+
+func OptOutputSanitizer(f func([]byte) ([]byte, error)) SetOpt {
+	return func(o *Opts) error {
+		o.OutputSanitizer = f
 		return nil
 	}
 }

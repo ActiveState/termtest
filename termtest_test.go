@@ -1,6 +1,7 @@
 package termtest
 
 import (
+	"bytes"
 	"fmt"
 	"os/exec"
 	"runtime"
@@ -197,4 +198,17 @@ func Test_ColSize(t *testing.T) {
 
 	// Also test that the terminal snapshot has the right col size
 	require.Contains(t, tt.Snapshot(), v)
+}
+
+func Test_Multiline_Sanitized(t *testing.T) {
+	tt := newTermTest(t, exec.Command("bash"), true, OptOutputSanitizer(func(v []byte) ([]byte, error) {
+		return bytes.Replace(v, []byte("\r\n"), []byte("\n"), -1), nil
+	}))
+	tt.SendLine(`cat << EOF
+foo
+bar
+EOF`)
+	tt.Expect("foo\nbar")
+	tt.SendLine("exit")
+	tt.ExpectExitCode(0)
 }

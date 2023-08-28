@@ -78,6 +78,13 @@ func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer 
 			return fmt.Errorf("could not write: %w", err)
 		}
 		snapshot = cleanPtySnapshot(snapshot[:n], o.opts.Posix)
+		if o.opts.OutputSanitizer != nil {
+			v, err := o.opts.OutputSanitizer(snapshot)
+			if err != nil {
+				return fmt.Errorf("could not sanitize output: %w", err)
+			}
+			snapshot = v
+		}
 		if err := appendBuffer(snapshot); err != nil {
 			return fmt.Errorf("could not append buffer: %w", err)
 		}
