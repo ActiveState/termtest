@@ -201,13 +201,22 @@ func Test_ColSize(t *testing.T) {
 }
 
 func Test_Multiline_Sanitized(t *testing.T) {
-	tt := newTermTest(t, exec.Command("bash"), true, OptOutputSanitizer(func(v []byte) ([]byte, error) {
-		return bytes.Replace(v, []byte("\r\n"), []byte("\n"), -1), nil
+	tt := newTermTest(t, exec.Command("bash"), false, OptOutputSanitizer(func(v []byte) ([]byte, error) {
+		vv := bytes.ReplaceAll(v, []byte("\r"), []byte(""))
+		return vv, nil
 	}))
-	tt.SendLine(`cat << EOF
-foo
-bar
-EOF`)
+
+	f, err := os.CreateTemp("", "")
+	require.NoError(t, err)
+	defer os.Remove(f.Name())
+	f.WriteString("foo\r\nbar")
+	f.Close()
+
+	tt.SendLine("cat " + f.Name())
+	tt.Expect("foo\nbar")
+	tt.SendLine("exit")
+	tt.ExpectExitCode(0)
+}
 	tt.Expect("foo\nbar")
 	tt.SendLine("exit")
 	tt.ExpectExitCode(0)
