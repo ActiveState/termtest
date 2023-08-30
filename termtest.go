@@ -36,6 +36,7 @@ type Opts struct {
 	Posix              bool
 	DefaultTimeout     time.Duration
 	OutputSanitizer    func([]byte) ([]byte, error)
+	NormalizedLineEnds bool
 }
 
 var TimeoutError = errors.New("timeout")
@@ -171,6 +172,13 @@ func OptOutputSanitizer(f func([]byte) ([]byte, error)) SetOpt {
 	}
 }
 
+func OptNormalizedLineEnds(v bool) SetOpt {
+	return func(o *Opts) error {
+		o.NormalizedLineEnds = v
+		return nil
+	}
+}
+
 func (tt *TermTest) SetErrorHandler(handler ErrorHandler) {
 	tt.opts.ExpectErrorHandler = handler
 }
@@ -295,6 +303,10 @@ func (tt *TermTest) Send(value string) (rerr error) {
 	defer tt.ExpectErrorHandler(&rerr, expectOpts)
 	if err != nil {
 		return fmt.Errorf("could not create expect options: %w", err)
+	}
+
+	if tt.opts.NormalizedLineEnds {
+		value = NormalizeLineEnds(value)
 	}
 
 	// Todo: Drop this sleep and figure out why without this we seem to be running into a race condition.

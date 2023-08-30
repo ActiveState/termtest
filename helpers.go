@@ -97,3 +97,11 @@ func reverse[S ~[]E, E any](s S) {
 		s[i], s[j] = s[j], s[i]
 	}
 }
+
+func NormalizeLineEnds(v string) string {
+	return strings.ReplaceAll(v, lineSepWindows, lineSepPosix)
+}
+
+func NormalizeLineEndsB(v []byte) []byte {
+	return bytes.ReplaceAll(v, []byte(lineSepWindows), []byte(lineSepPosix))
+}

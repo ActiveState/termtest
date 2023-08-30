@@ -103,6 +103,10 @@ func (o *outputProducer) appendBuffer(value []byte) error {
 		output = v
 	}
 
+	if o.opts.NormalizedLineEnds {
+		output = NormalizeLineEndsB(output)
+	}
+
 	o.output = output
 
 	o.opts.Logger.Printf("flushing %d output consumers", len(o.consumers))
