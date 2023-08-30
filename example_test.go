@@ -23,8 +23,10 @@ func Test_Basic(t *testing.T) {
 }
 
 func Test_DontMatchInput(t *testing.T) {
-	tt, err := termtest.New(exec.Command("bash"), termtest.OptVerboseLogging())
+	tt, err := termtest.New(exec.Command("bash"))
 	require.NoError(t, err)
+
+	tt.Expect("$") // Wait for prompt
 
 	tt.SendLine("FOO=bar")
 	tt.Expect("FOO=bar") // This matches the input, not the output
