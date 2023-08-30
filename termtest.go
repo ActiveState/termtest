@@ -42,7 +42,7 @@ var TimeoutError = errors.New("timeout")
 
 type SetOpt func(o *Opts) error
 
-const DefaultCols = 1000
+const DefaultCols = 140
 const DefaultRows = 10
 
 func NewOpts() *Opts {
