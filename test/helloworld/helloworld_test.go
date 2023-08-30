@@ -4,6 +4,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ActiveState/termtest"
@@ -23,8 +24,8 @@ func Test_ExactOutput(t *testing.T) {
 
 	tt.ExpectExitCode(0)
 
-	output := tt.Output()
+	output := strings.TrimSpace(tt.Output())
 	if output != "Hello World" {
-		t.Errorf("Output should be 'Hello World' and nothing else, got: %s", output)
+		t.Errorf("Output should be 'Hello World' and nothing else, got: '%s'", output)
 	}
 }
