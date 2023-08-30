@@ -306,6 +306,7 @@ func (tt *TermTest) Send(value string) (rerr error) {
 	}
 
 	if tt.opts.NormalizedLineEnds {
+		tt.opts.Logger.Println("NormalizedLineEnds prior to Send")
 		value = NormalizeLineEnds(value)
 	}
 

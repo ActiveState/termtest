@@ -104,6 +104,7 @@ func (o *outputProducer) appendBuffer(value []byte) error {
 	}
 
 	if o.opts.NormalizedLineEnds {
+		o.opts.Logger.Println("NormalizedLineEnds prior to appendBuffer")
 		output = NormalizeLineEndsB(output)
 	}
 

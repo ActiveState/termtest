@@ -114,6 +114,11 @@ func (tt *TermTest) Expect(value string, opts ...SetExpectOpt) error {
 }
 
 func (tt *TermTest) expect(value, buffer string) (endPos int, rerr error) {
+	if tt.opts.NormalizedLineEnds {
+		tt.opts.Logger.Println("NormalizedLineEnds prior to expect")
+		value = NormalizeLineEnds(value)
+	}
+
 	tt.opts.Logger.Printf("expect: '%s', buffer: '%s'\n", value, strings.Trim(strings.TrimSpace(buffer), "\x00"))
 	defer func() {
 		tt.opts.Logger.Printf("Match: %v\n", endPos > 0)
