@@ -251,6 +251,11 @@ func (tt *TermTest) WaitIndefinitely() error {
 		time.Sleep(time.Millisecond * 100)
 	}
 
+	// listenError will be written to when the process exits, and this is the only reasonable place for us to
+	// catch listener errors
+	listenError := <-tt.listenError
+
+	// Clean up pty
 	tt.opts.Logger.Println("Closing pty")
 	if err := tt.ptmx.Close(); err != nil {
 		if syscallErrorCode(err) == 0 {
@@ -259,22 +264,12 @@ func (tt *TermTest) WaitIndefinitely() error {
 			// Ignore access denied error - means process has already finished
 			tt.opts.Logger.Println("Ignoring access denied error")
 		} else {
-			return fmt.Errorf("failed to close pty: %w", err)
+			return errors.Join(listenError, fmt.Errorf("failed to close pty: %w", err))
 		}
 	}
 	tt.opts.Logger.Println("Closed pty")
 
-	// wait outputProducer
-	// This should trigger listenError from being written to (on a goroutine)
-	tt.opts.Logger.Println("Closing outputProducer")
-	if err := tt.outputProducer.close(); err != nil {
-		return fmt.Errorf("failed to close output digester: %w", err)
-	}
-	tt.opts.Logger.Println("Closed outputProducer")
-
-	// listenError will be written to when the process exits, and this is the only reasonable place for us to
-	// catch listener errors
-	return <-tt.listenError
+	return listenError
 }
 
 // Cmd returns the underlying command

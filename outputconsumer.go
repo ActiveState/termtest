@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-var StopPrematureError = fmt.Errorf("stop called while consumer was still active")
-
 type consumer func(buffer string) (matchEndPos int, err error)
 
 type outputConsumer struct {
@@ -81,13 +79,6 @@ func (e *outputConsumer) Report(buffer []byte) (int, error) {
 		}()
 	}
 	return pos, err
-}
-
-// close is by definition an error condition, because it would only be called if the consumer is still active
-// under normal conditions the consumer is dropped when the wait is satisfied
-func (e *outputConsumer) close() {
-	e.opts.Logger.Println("closing waiter close method")
-	e.waiter <- StopPrematureError
 }
 
 func (e *outputConsumer) wait() error {

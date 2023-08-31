@@ -68,7 +68,6 @@ func Test_outputProducer_listen(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.wantAppends) {
 				t.Errorf("listen() got = %v, want %v", got, tt.wantAppends)
 			}
-			require.NoError(t, op.close())
 		})
 	}
 }

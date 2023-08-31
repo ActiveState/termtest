@@ -24,16 +24,14 @@ type outputProducer struct {
 	consumers   []*outputConsumer
 	opts        *Opts
 	mutex       *sync.Mutex
-	listenDone  chan struct{}
 }
 
 func newOutputProducer(opts *Opts) *outputProducer {
 	return &outputProducer{
-		output:     []byte{},
-		consumers:  []*outputConsumer{},
-		listenDone: make(chan struct{}, 1),
-		opts:       opts,
-		mutex:      &sync.Mutex{},
+		output:    []byte{},
+		consumers: []*outputConsumer{},
+		opts:      opts,
+		mutex:     &sync.Mutex{},
 	}
 }
 
@@ -45,7 +43,6 @@ func (o *outputProducer) listen(r io.Reader, w io.Writer, appendBuffer func([]by
 	o.opts.Logger.Println("listen started")
 	defer func() {
 		o.opts.Logger.Printf("listen stopped, err: %v\n", rerr)
-		close(o.listenDone)
 	}()
 
 	br := bufio.NewReader(r)
@@ -163,23 +160,6 @@ func (o *outputProducer) flushConsumers() error {
 			n--
 		}
 	}
-
-	return nil
-}
-
-func (o *outputProducer) close() error {
-	o.opts.Logger.Printf("closing output producer")
-	defer o.opts.Logger.Printf("closed output producer")
-
-	for _, consumer := range o.consumers {
-		// This will cause the consumer to return an error because if used correctly there shouldn't be any running
-		// consumers at this time
-		consumer.close()
-	}
-
-	o.opts.Logger.Printf("waiting for listen to finish")
-	<-o.listenDone
-	o.opts.Logger.Printf("listen finished")
 
 	return nil
 }

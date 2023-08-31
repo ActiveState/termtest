@@ -1,24 +1,11 @@
 package termtest
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"time"
 )
-
-type ExpectNotMetDueToStopError struct {
-	err error
-}
-
-func (e *ExpectNotMetDueToStopError) Error() string {
-	return "expectation not met by the time the process finished"
-}
-
-func (e *ExpectNotMetDueToStopError) Unwrap() error {
-	return e.err
-}
 
 type ExpectOpts struct {
 	ExpectTimeout bool
@@ -72,12 +59,6 @@ func (tt *TermTest) ExpectErrorHandler(rerr *error, opts *ExpectOpts) error {
 	err := *rerr
 	if err == nil {
 		return nil
-	}
-
-	// Sanitize error messages so we can easily interpret the results
-	switch {
-	case errors.Is(err, StopPrematureError):
-		err = &ExpectNotMetDueToStopError{err}
 	}
 
 	errorHandler := tt.opts.ExpectErrorHandler
