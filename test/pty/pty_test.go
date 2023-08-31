@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/creack/pty"
 )
@@ -37,7 +36,6 @@ func Test_Pty_Output(t *testing.T) {
 			t.Fatalf("read error: %s", err)
 			break
 		}
-		time.Sleep(time.Millisecond * 100)
 	}
 	outputv := strings.TrimSpace(string(output))
 	if outputv != "hello" {
