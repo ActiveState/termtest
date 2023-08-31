@@ -1,0 +1,4 @@
+github.com/photostorm/pty v0.0.0-20230324012736-6794a5ba0ba0 h1:12sw4rIcXrMHdMlCbTmaC3RkBfHR8zdoAsetnmMWRh0=
+github.com/photostorm/pty v0.0.0-20230324012736-6794a5ba0ba0/go.mod h1:KO+FcPtyLAiRC0hJwreJVvfwc7vnNz77UxBTIGHdPVk=
+golang.org/x/sys v0.0.0-20220721230656-c6bc011c0c49 h1:TMjZDarEwf621XDryfitp/8awEhiZNiwgphKlTMGRIg=
+golang.org/x/sys v0.0.0-20220721230656-c6bc011c0c49/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
