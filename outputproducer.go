@@ -55,8 +55,7 @@ func (o *outputProducer) listen(r io.Reader, w io.Writer, appendBuffer func([]by
 	for {
 		o.opts.Logger.Println("listen: loop")
 		if err := o.processNextRead(br, w, appendBuffer, size); err != nil {
-			pathError := &fs.PathError{}
-			if errors.Is(err, fs.ErrClosed) || errors.Is(err, io.EOF) || (runtime.GOOS == "linux" && errors.As(err, &pathError)) {
+			if errors.Is(err, ptyEOF) {
 				o.opts.Logger.Println("listen: reached EOF")
 				return nil
 			} else {
@@ -65,6 +64,8 @@ func (o *outputProducer) listen(r io.Reader, w io.Writer, appendBuffer func([]by
 		}
 	}
 }
+
+var ptyEOF = errors.New("pty closed")
 
 func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer func([]byte) error, size int) error {
 	o.opts.Logger.Printf("processNextRead started with size: %d\n", size)
@@ -83,9 +84,11 @@ func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer 
 		}
 	}
 
-	// Error doesn't necessarily mean something went wrong, we may just have reached the natural end
-	// It's the consumers job to check for EOF errors and ignore them if they're expected
 	if errRead != nil {
+		pathError := &fs.PathError{}
+		if errors.Is(errRead, fs.ErrClosed) || errors.Is(errRead, io.EOF) || (runtime.GOOS == "linux" && errors.As(errRead, &pathError)) {
+			return errors.Join(errRead, ptyEOF)
+		}
 		return fmt.Errorf("could not read pty output: %w", errRead)
 	}
 
