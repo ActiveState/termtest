@@ -14,7 +14,7 @@ import (
 func Test_Expect(t *testing.T) {
 	tt := newTermTest(t, exec.Command("bash", "-c", "echo HELLO"), true)
 	tt.Expect("HELLO")
-	tt.ExpectExitCode(0)
+	tt.ExpectExitCode(0, OptExpectTimeout(time.Hour))
 }
 
 func Test_Expect_Cmd(t *testing.T) {

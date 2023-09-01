@@ -239,39 +239,6 @@ func (tt *TermTest) Wait(timeout time.Duration) error {
 	}
 }
 
-func (tt *TermTest) WaitIndefinitely() error {
-	tt.opts.Logger.Println("WaitIndefinitely called")
-	defer tt.opts.Logger.Println("WaitIndefinitely closed")
-
-	// On windows there is a race condition where ClosePseudoConsole will hang if we call it around the same
-	// time as the parent process exits.
-	// This is not a clean solution, as there's no guarantee that 100 milliseconds will be sufficient. But in
-	// my tests it has been, and I can't afford to keep digging on this.
-	if runtime.GOOS == "windows" {
-		time.Sleep(time.Millisecond * 100)
-	}
-
-	// listenError will be written to when the process exits, and this is the only reasonable place for us to
-	// catch listener errors
-	listenError := <-tt.listenError
-
-	// Clean up pty
-	tt.opts.Logger.Println("Closing pty")
-	if err := tt.ptmx.Close(); err != nil {
-		if syscallErrorCode(err) == 0 {
-			tt.opts.Logger.Println("Ignoring 'The operation completed successfully' error")
-		} else if errors.Is(err, ERR_ACCESS_DENIED) {
-			// Ignore access denied error - means process has already finished
-			tt.opts.Logger.Println("Ignoring access denied error")
-		} else {
-			return errors.Join(listenError, fmt.Errorf("failed to close pty: %w", err))
-		}
-	}
-	tt.opts.Logger.Println("Closed pty")
-
-	return listenError
-}
-
 // Cmd returns the underlying command
 func (tt *TermTest) Cmd() *exec.Cmd {
 	return tt.cmd

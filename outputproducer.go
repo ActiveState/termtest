@@ -155,7 +155,7 @@ func (o *outputProducer) flushConsumers() error {
 			o.snapshotPos += endPos
 
 			// Drop consumer
-			o.opts.Logger.Printf("dropping consumer %d out of %d", n, len(o.consumers))
+			o.opts.Logger.Printf("dropping consumer %d out of %d", n+1, len(o.consumers))
 			o.consumers = append(o.consumers[:n], o.consumers[n+1:]...)
 			n--
 		}

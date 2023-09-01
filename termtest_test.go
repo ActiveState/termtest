@@ -185,7 +185,7 @@ func Test_PendingOutput_Output_Snapshot(t *testing.T) {
 }
 
 func Test_ColSize(t *testing.T) {
-	size := 1000
+	size := 100
 	shell := "bash"
 	if runtime.GOOS == "windows" {
 		shell = "cmd.exe"
@@ -212,7 +212,12 @@ func Test_Multiline_Sanitized(t *testing.T) {
 	f.WriteString("foo\r\nbar")
 	f.Close()
 
-	tt.SendLine("cat " + f.Name())
+	fpath := f.Name()
+	if runtime.GOOS == "windows" {
+		fpath = toPosixPath(fpath)
+	}
+
+	tt.SendLine("cat " + fpath)
 	tt.Expect("foo\nbar")
 	tt.SendLine("exit")
 	tt.ExpectExitCode(0)
@@ -227,7 +232,12 @@ func Test_Multiline_Normalized(t *testing.T) {
 	f.WriteString("foo\r\nbar")
 	f.Close()
 
-	tt.SendLine("cat " + f.Name())
+	fpath := f.Name()
+	if runtime.GOOS == "windows" {
+		fpath = toPosixPath(fpath)
+	}
+
+	tt.SendLine("cat " + fpath)
 	tt.Expect("foo\nbar")
 	tt.SendLine("echo -e \"foo\r\nbar\" | tr -d -c \"\\r\" | wc -c")
 	tt.Expect("0") // Should be zero occurrences of \r

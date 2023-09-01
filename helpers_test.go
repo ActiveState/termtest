@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -96,4 +97,8 @@ type BlackholeWriter struct {
 
 func (BlackholeWriter) Write(p []byte) (int, error) {
 	return len(p), nil
+}
+
+func toPosixPath(p string) string {
+	return regexp.MustCompile(`^([A-Za-z])\:`).ReplaceAllString(filepath.ToSlash(p), "/$1")
 }
