@@ -267,11 +267,6 @@ func (tt *TermTest) Send(value string) (rerr error) {
 		return fmt.Errorf("could not create expect options: %w", err)
 	}
 
-	if tt.opts.NormalizedLineEnds {
-		tt.opts.Logger.Println("NormalizedLineEnds prior to Send")
-		value = NormalizeLineEnds(value)
-	}
-
 	// Todo: Drop this sleep and figure out why without this we seem to be running into a race condition.
 	// Disabling this sleep will make survey_test.go fail on occasion (rerun it a few times).
 	time.Sleep(time.Millisecond)
