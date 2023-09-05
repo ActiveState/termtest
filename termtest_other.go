@@ -3,6 +3,11 @@
 
 package termtest
 
+import (
+	"errors"
+	"fmt"
+)
+
 func syscallErrorCode(err error) int {
 	return -1
 }
