@@ -1,6 +1,7 @@
 package termtest
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"regexp"
@@ -171,6 +172,26 @@ func Test_ExpectCustom_Cmd(t *testing.T) {
 			require.NotErrorIs(t, tt.Wait(5*time.Second), TimeoutError)
 		})
 	}
+}
+
+func Test_Expect_Timeout(t *testing.T) {
+	tt := newTermTest(t, exec.Command("bash", "-c", "echo HELLO"), false)
+	durations := []time.Duration{
+		100 * time.Millisecond,
+		200 * time.Millisecond,
+		500 * time.Millisecond,
+	}
+	for _, duration := range durations {
+		ti := time.Now()
+		err := tt.Expect("No match", OptExpectTimeout(duration), OptExpectSilenceErrorHandler())
+		if !errors.Is(err, TimeoutError) {
+			t.Errorf("Expected timeout, but got %s", err)
+		}
+		if time.Since(ti) > duration+(50*time.Millisecond) { // 50ms of margin
+			t.Errorf("Expected timeout under %s, but got %s", duration, time.Since(ti))
+		}
+	}
+	tt.ExpectExitCode(0, OptExpectTimeout(time.Hour))
 }
 
 func Test_ExpectMatchTwiceSameBuffer(t *testing.T) {
