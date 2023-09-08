@@ -2,8 +2,10 @@ package termtest
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -53,7 +55,7 @@ func Test_outputProducer_listen(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := []string{}
-			appendV := func(v []byte) error {
+			appendV := func(v []byte, _ bool) error {
 				got = append(got, string(v))
 				return nil
 			}
@@ -257,7 +259,7 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 			}
 
 			for n, appendV := range tt.appendCalls {
-				if err := op.appendBuffer([]byte(appendV)); !errors.Is(err, tt.wantAppendErrs[n]) {
+				if err := op.appendBuffer([]byte(appendV), false); !errors.Is(err, tt.wantAppendErrs[n]) {
 					t.Errorf("appendBuffer() error = %v, wantErr %v", err, tt.wantAppendErrs[n])
 				}
 			}
@@ -274,6 +276,162 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 			}
 			if !reflect.DeepEqual(gotConsumerIDs, tt.wantConsumerIDs) {
 				t.Errorf("gotConsumerIDs = %v, want %v", gotConsumerIDs, tt.wantConsumerIDs)
+			}
+		})
+	}
+}
+
+func Test_outputProducer_cleanOutput(t *testing.T) {
+	phraseSanitizer := func(b []byte) ([]byte, error) {
+		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte("sanitized")), nil
+	}
+	inc := 0
+	incrementalPhraseSanitizer := func(b []byte) ([]byte, error) {
+		defer func() { inc++ }()
+		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte(fmt.Sprintf("sanitized%d", inc))), nil
+	}
+
+	type invocation struct {
+		appendBytes []byte
+		isFinal     bool
+		wantOutput  []byte
+		wantPos     int
+		wantErr     require.ErrorAssertionFunc
+	}
+	tests := []struct {
+		name        string
+		op          *outputProducer
+		startPos    int
+		cleaner     func([]byte) ([]byte, error)
+		invocations []invocation
+	}{
+		{
+			"Do not sanitize unfinished",
+			&outputProducer{},
+			0,
+			func([]byte) ([]byte, error) {
+				return []byte(""), fmt.Errorf("I should not have been invoked")
+			},
+			[]invocation{
+				{
+					[]byte("not final cause I dont have a line end"),
+					false,
+					[]byte("not final cause I dont have a line end"),
+					0,
+					require.NoError,
+				},
+			},
+		},
+		{
+			"Sanitize finished",
+			&outputProducer{},
+			0,
+			func([]byte) ([]byte, error) {
+				return []byte("sanitized"), nil
+			},
+			[]invocation{
+				{
+					[]byte("final cause I'm sending isFinal=true'"),
+					true,
+					[]byte("sanitized"),
+					9,
+					require.NoError,
+				},
+			},
+		},
+		{
+			"Sanitize up to final line end",
+			&outputProducer{},
+			0,
+			phraseSanitizer,
+			[]invocation{
+				{
+					[]byte("sanitize\nsanitize\ndont sanitize"),
+					false,
+					[]byte("sanitized\nsanitized\ndont sanitize"),
+					20,
+					require.NoError,
+				},
+			},
+		},
+		{
+			"Sanitize from pos up to final line end",
+			&outputProducer{},
+			21,
+			phraseSanitizer,
+			[]invocation{
+				{
+					[]byte("previously sanitized\nsanitize\ndont sanitize"),
+					false,
+					[]byte("previously sanitized\nsanitized\ndont sanitize"),
+					31,
+					require.NoError,
+				},
+			},
+		},
+		{
+			"Consecutive Invocations",
+			&outputProducer{},
+			0,
+			incrementalPhraseSanitizer,
+			[]invocation{
+				{
+					// This won't result in anything being sanitized, because isFinal=false and there is no line end
+					[]byte("sanitize me"),
+					false,
+					[]byte("sanitize me"),
+					0,
+					require.NoError,
+				},
+				{
+					// The new text won't  get sanitized, but because we're adding a line break at the start here which
+					// will get appended to the previous invocation we should now get the bytes produced by the previous
+					// invocation sanitized.
+					[]byte("\nsanitize me"),
+					false,
+					[]byte("sanitized0\nsanitize me"),
+					11,
+					require.NoError,
+				},
+				{
+					// We're just appending a new line end here, so all output produced up to this point should now get
+					// sanitized. The integer at the end of the sanitized output lets us know which invocation it got
+					// sanitized on.
+					[]byte("\n"),
+					false,
+					[]byte("sanitized0\nsanitized1\n"),
+					22,
+					require.NoError,
+				},
+				{
+					// No line end on the new output, but we're sending isFinal=true, so the output should be sanitized
+					[]byte("sanitize me"),
+					true,
+					[]byte("sanitized0\nsanitized1\nsanitized2"),
+					32,
+					require.NoError,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := tt.op
+			startPos := tt.startPos
+			output := []byte{}
+			for n, inv := range tt.invocations {
+				cont := t.Run(fmt.Sprintf("%d", n), func(t *testing.T) {
+					output = append(output, inv.appendBytes...)
+					got, newStartPos, err := o.processDirtyOutput(output, startPos, inv.isFinal, tt.cleaner)
+					inv.wantErr(t, err, fmt.Sprintf("cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal))
+					require.Equalf(t, string(inv.wantOutput), string(got), "cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal)
+					require.Equalf(t, inv.wantPos, newStartPos, "cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal)
+					startPos = newStartPos
+					output = got
+				})
+				if !cont {
+					break
+				}
 			}
 		})
 	}

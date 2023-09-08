@@ -105,3 +105,7 @@ func NormalizeLineEnds(v string) string {
 func NormalizeLineEndsB(v []byte) []byte {
 	return bytes.ReplaceAll(v, []byte(lineSepWindows), []byte(lineSepPosix))
 }
+
+func copyBytes(b []byte) []byte {
+	return append([]byte{}, b...)
+}

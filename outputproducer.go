@@ -2,6 +2,7 @@ package termtest
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -19,11 +20,12 @@ const producerBufferSize = 1024
 
 // outputProducer is responsible for keeping track of the output and notifying consumers when new output is produced
 type outputProducer struct {
-	output      []byte
-	snapshotPos int
-	consumers   []*outputConsumer
-	opts        *Opts
-	mutex       *sync.Mutex
+	output       []byte
+	snapshotPos  int
+	cleanUptoPos int
+	consumers    []*outputConsumer
+	opts         *Opts
+	mutex        *sync.Mutex
 }
 
 func newOutputProducer(opts *Opts) *outputProducer {
@@ -39,7 +41,7 @@ func (o *outputProducer) Listen(r io.Reader, w io.Writer) error {
 	return o.listen(r, w, o.appendBuffer, producerPollInterval, producerBufferSize)
 }
 
-func (o *outputProducer) listen(r io.Reader, w io.Writer, appendBuffer func([]byte) error, interval time.Duration, size int) (rerr error) {
+func (o *outputProducer) listen(r io.Reader, w io.Writer, appendBuffer func([]byte, bool) error, interval time.Duration, size int) (rerr error) {
 	o.opts.Logger.Println("listen started")
 	defer func() {
 		o.opts.Logger.Printf("listen stopped, err: %v\n", rerr)
@@ -64,26 +66,33 @@ func (o *outputProducer) listen(r io.Reader, w io.Writer, appendBuffer func([]by
 
 var ptyEOF = errors.New("pty closed")
 
-func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer func([]byte) error, size int) error {
+func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer func([]byte, bool) error, size int) error {
 	o.opts.Logger.Printf("processNextRead started with size: %d\n", size)
 	defer o.opts.Logger.Println("processNextRead stopped")
 
 	snapshot := make([]byte, size)
 	n, errRead := r.Read(snapshot)
+
+	isEOF := false
+	if errRead != nil {
+		pathError := &fs.PathError{}
+		if errors.Is(errRead, fs.ErrClosed) || errors.Is(errRead, io.EOF) || (runtime.GOOS == "linux" && errors.As(errRead, &pathError)) {
+			isEOF = true
+		}
+	}
+
 	if n > 0 {
 		o.opts.Logger.Printf("outputProducer read %d bytes from pty, value: %s", n, snapshot[:n])
 		if _, err := w.Write(snapshot[:n]); err != nil {
 			return fmt.Errorf("could not write: %w", err)
 		}
-		snapshot = cleanPtySnapshot(snapshot[:n], o.opts.Posix)
-		if err := appendBuffer(snapshot); err != nil {
+		if err := appendBuffer(snapshot[:n], isEOF); err != nil {
 			return fmt.Errorf("could not append buffer: %w", err)
 		}
 	}
 
 	if errRead != nil {
-		pathError := &fs.PathError{}
-		if errors.Is(errRead, fs.ErrClosed) || errors.Is(errRead, io.EOF) || (runtime.GOOS == "linux" && errors.As(errRead, &pathError)) {
+		if isEOF {
 			return errors.Join(errRead, ptyEOF)
 		}
 		return fmt.Errorf("could not read pty output: %w", errRead)
@@ -92,23 +101,27 @@ func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer 
 	return nil
 }
 
-func (o *outputProducer) appendBuffer(value []byte) error {
-	output := append(o.output, value...)
-
-	if o.opts.OutputSanitizer != nil {
-		v, err := o.opts.OutputSanitizer(output)
-		if err != nil {
-			return fmt.Errorf("could not sanitize output: %w", err)
-		}
-		output = v
-	}
-
+func (o *outputProducer) appendBuffer(value []byte, isFinal bool) error {
 	if o.opts.NormalizedLineEnds {
 		o.opts.Logger.Println("NormalizedLineEnds prior to appendBuffer")
-		output = NormalizeLineEndsB(output)
+		value = NormalizeLineEndsB(value)
 	}
 
-	o.output = output
+	output := append(o.output, value...)
+
+	// Clean output
+	var err error
+	o.output, o.cleanUptoPos, err = o.processDirtyOutput(output, o.cleanUptoPos, isFinal, func(output []byte) ([]byte, error) {
+		var err error
+		output = cleanPtySnapshot(output, o.opts.Posix)
+		if o.opts.OutputSanitizer != nil {
+			output, err = o.opts.OutputSanitizer(output)
+		}
+		return output, err
+	})
+	if err != nil {
+		return fmt.Errorf("cleaning output failed: %w", err)
+	}
 
 	o.opts.Logger.Printf("flushing %d output consumers", len(o.consumers))
 	defer o.opts.Logger.Println("flushed output consumers")
@@ -118,6 +131,47 @@ func (o *outputProducer) appendBuffer(value []byte) error {
 	}
 
 	return nil
+}
+
+// processDirtyOutput will sanitize the output received, but we have to be careful not to clean output that hasn't fully arrived
+// For example we may be inside an escape sequence and the escape sequence hasn't finished
+// So instead we only process new output up to the most recent line break
+// In order for this to work properly the invoker must ensure the output and cleanUptoPos are consistent with each other.
+func (o *outputProducer) processDirtyOutput(output []byte, cleanUptoPos int, isFinal bool, cleaner func([]byte) ([]byte, error)) ([]byte, int, error) {
+	alreadyCleanedOutput := copyBytes(output[:cleanUptoPos])
+	processedOutput := []byte{}
+	unprocessedOutput := copyBytes(output[cleanUptoPos:])
+
+	if isFinal {
+		// If we've reached the end there's no point looking for the most recent line break as there's no guarantee the
+		// output will be terminated by a newline.
+		processedOutput = copyBytes(unprocessedOutput)
+		unprocessedOutput = []byte{}
+	} else {
+		// Find the most recent line break, and only clean until that point.
+		// Any output after the most recent line break is considered not ready for cleaning as cleaning depends on
+		// multiple consecutive characters.
+		lineSepN := bytes.LastIndex(unprocessedOutput, []byte("\n"))
+		if lineSepN != -1 {
+			processedOutput = copyBytes(unprocessedOutput[0 : lineSepN+1])
+			unprocessedOutput = unprocessedOutput[lineSepN+1:]
+		}
+	}
+
+	// Invoke the cleaner now that we have output that can be cleaned
+	if len(processedOutput) > 0 {
+		var err error
+		processedOutput, err = cleaner(processedOutput)
+		if err != nil {
+			return processedOutput, cleanUptoPos, fmt.Errorf("cleaner failed: %w", err)
+		}
+	}
+
+	// Keep a record of what point we're up to
+	cleanUptoPos = cleanUptoPos + len(processedOutput)
+
+	// Stitch everything back together
+	return append(append(alreadyCleanedOutput, processedOutput...), unprocessedOutput...), cleanUptoPos, nil
 }
 
 func (o *outputProducer) flushConsumers() error {
