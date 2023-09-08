@@ -282,13 +282,13 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 }
 
 func Test_outputProducer_cleanOutput(t *testing.T) {
-	phraseSanitizer := func(b []byte) ([]byte, error) {
-		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte("sanitized")), nil
+	phraseSanitizer := func(b []byte, cursorPos int) ([]byte, int, error) {
+		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte("sanitized")), -1, nil
 	}
 	inc := 0
-	incrementalPhraseSanitizer := func(b []byte) ([]byte, error) {
+	incrementalPhraseSanitizer := func(b []byte, _ int) ([]byte, int, error) {
 		defer func() { inc++ }()
-		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte(fmt.Sprintf("sanitized%d", inc))), nil
+		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte(fmt.Sprintf("sanitized%d", inc))), -1, nil
 	}
 
 	type invocation struct {
@@ -302,15 +302,15 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 		name        string
 		op          *outputProducer
 		startPos    int
-		cleaner     func([]byte) ([]byte, error)
+		cleaner     cleanerFunc
 		invocations []invocation
 	}{
 		{
 			"Do not sanitize unfinished",
 			&outputProducer{},
 			0,
-			func([]byte) ([]byte, error) {
-				return []byte(""), fmt.Errorf("I should not have been invoked")
+			func([]byte, int) ([]byte, int, error) {
+				return []byte(""), -1, fmt.Errorf("I should not have been invoked")
 			},
 			[]invocation{
 				{
@@ -326,8 +326,8 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 			"Sanitize finished",
 			&outputProducer{},
 			0,
-			func([]byte) ([]byte, error) {
-				return []byte("sanitized"), nil
+			func([]byte, int) ([]byte, int, error) {
+				return []byte("sanitized"), -1, nil
 			},
 			[]invocation{
 				{
@@ -422,7 +422,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 			for n, inv := range tt.invocations {
 				cont := t.Run(fmt.Sprintf("%d", n), func(t *testing.T) {
 					output = append(output, inv.appendBytes...)
-					got, newStartPos, err := o.processDirtyOutput(output, startPos, inv.isFinal, tt.cleaner)
+					got, _, newStartPos, err := o.processDirtyOutput(output, 0, startPos, inv.isFinal, tt.cleaner)
 					inv.wantErr(t, err, fmt.Sprintf("cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal))
 					require.Equalf(t, string(inv.wantOutput), string(got), "cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal)
 					require.Equalf(t, inv.wantPos, newStartPos, "cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal)

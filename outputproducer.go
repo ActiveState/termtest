@@ -21,8 +21,8 @@ const producerBufferSize = 1024
 // outputProducer is responsible for keeping track of the output and notifying consumers when new output is produced
 type outputProducer struct {
 	output       []byte
-	snapshotPos  int
-	cleanUptoPos int
+	cursorPos    int // The position of our virtual cursor, which is the position up to where we've satisfied consumers
+	cleanUptoPos int // Up to which position we've cleaned the output, because incomplete output cannot be cleaned
 	consumers    []*outputConsumer
 	opts         *Opts
 	mutex        *sync.Mutex
@@ -111,13 +111,13 @@ func (o *outputProducer) appendBuffer(value []byte, isFinal bool) error {
 
 	// Clean output
 	var err error
-	o.output, o.cleanUptoPos, err = o.processDirtyOutput(output, o.cleanUptoPos, isFinal, func(output []byte) ([]byte, error) {
+	o.output, o.cursorPos, o.cleanUptoPos, err = o.processDirtyOutput(output, o.cursorPos, o.cleanUptoPos, isFinal, func(output []byte, cursorPos int) ([]byte, int, error) {
 		var err error
-		output = cleanPtySnapshot(output, o.opts.Posix)
+		output, cursorPos = cleanPtySnapshot(output, cursorPos, o.opts.Posix)
 		if o.opts.OutputSanitizer != nil {
-			output, err = o.opts.OutputSanitizer(output)
+			output, cursorPos, err = o.opts.OutputSanitizer(output, cursorPos)
 		}
-		return output, err
+		return output, cursorPos, err
 	})
 	if err != nil {
 		return fmt.Errorf("cleaning output failed: %w", err)
@@ -133,11 +133,13 @@ func (o *outputProducer) appendBuffer(value []byte, isFinal bool) error {
 	return nil
 }
 
+type cleanerFunc func([]byte, int) ([]byte, int, error)
+
 // processDirtyOutput will sanitize the output received, but we have to be careful not to clean output that hasn't fully arrived
 // For example we may be inside an escape sequence and the escape sequence hasn't finished
 // So instead we only process new output up to the most recent line break
 // In order for this to work properly the invoker must ensure the output and cleanUptoPos are consistent with each other.
-func (o *outputProducer) processDirtyOutput(output []byte, cleanUptoPos int, isFinal bool, cleaner func([]byte) ([]byte, error)) ([]byte, int, error) {
+func (o *outputProducer) processDirtyOutput(output []byte, cursorPos int, cleanUptoPos int, isFinal bool, cleaner cleanerFunc) ([]byte, int, int, error) {
 	alreadyCleanedOutput := copyBytes(output[:cleanUptoPos])
 	processedOutput := []byte{}
 	unprocessedOutput := copyBytes(output[cleanUptoPos:])
@@ -161,9 +163,9 @@ func (o *outputProducer) processDirtyOutput(output []byte, cleanUptoPos int, isF
 	// Invoke the cleaner now that we have output that can be cleaned
 	if len(processedOutput) > 0 {
 		var err error
-		processedOutput, err = cleaner(processedOutput)
+		processedOutput, cursorPos, err = cleaner(processedOutput, cursorPos)
 		if err != nil {
-			return processedOutput, cleanUptoPos, fmt.Errorf("cleaner failed: %w", err)
+			return processedOutput, cursorPos, cleanUptoPos, fmt.Errorf("cleaner failed: %w", err)
 		}
 	}
 
@@ -171,7 +173,7 @@ func (o *outputProducer) processDirtyOutput(output []byte, cleanUptoPos int, isF
 	cleanUptoPos = cleanUptoPos + len(processedOutput)
 
 	// Stitch everything back together
-	return append(append(alreadyCleanedOutput, processedOutput...), unprocessedOutput...), cleanUptoPos, nil
+	return append(append(alreadyCleanedOutput, processedOutput...), unprocessedOutput...), cursorPos, cleanUptoPos, nil
 }
 
 func (o *outputProducer) flushConsumers() error {
@@ -183,7 +185,7 @@ func (o *outputProducer) flushConsumers() error {
 
 	for n := 0; n < len(o.consumers); n++ {
 		consumer := o.consumers[n]
-		snapshot := o.PendingOutput() // o.PendingOutput() considers the snapshotPos
+		snapshot := o.PendingOutput() // o.PendingOutput() considers the cursorPos
 		if len(snapshot) == 0 {
 			o.opts.Logger.Println("no snapshot to flush")
 			return nil
@@ -206,7 +208,7 @@ func (o *outputProducer) flushConsumers() error {
 			if endPos > len(snapshot) {
 				return fmt.Errorf("consumer reported end position %d greater than snapshot length %d", endPos, len(o.output))
 			}
-			o.snapshotPos += endPos
+			o.cursorPos += endPos
 
 			// Drop consumer
 			o.opts.Logger.Printf("dropping consumer %d out of %d", n+1, len(o.consumers))
@@ -234,7 +236,7 @@ func (o *outputProducer) addConsumer(consume consumer, opts ...SetConsOpt) (*out
 }
 
 func (o *outputProducer) PendingOutput() []byte {
-	return o.output[o.snapshotPos:]
+	return o.output[o.cursorPos:]
 }
 
 func (o *outputProducer) Output() []byte {

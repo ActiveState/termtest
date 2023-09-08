@@ -202,8 +202,8 @@ func Test_ColSize(t *testing.T) {
 }
 
 func Test_Multiline_Sanitized(t *testing.T) {
-	tt := newTermTest(t, exec.Command("bash"), false, OptOutputSanitizer(func(v []byte) ([]byte, error) {
-		return bytes.Replace(v, []byte("\r\n"), []byte("\n"), -1), nil
+	tt := newTermTest(t, exec.Command("bash"), false, OptOutputSanitizer(func(v []byte, _ int) ([]byte, int, error) {
+		return bytes.Replace(v, []byte("\r\n"), []byte("\n"), -1), 0, nil
 	}))
 
 	f, err := os.CreateTemp("", "")

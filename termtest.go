@@ -35,7 +35,7 @@ type Opts struct {
 	Rows               int
 	Posix              bool
 	DefaultTimeout     time.Duration
-	OutputSanitizer    func([]byte) ([]byte, error)
+	OutputSanitizer    cleanerFunc
 	NormalizedLineEnds bool
 }
 
@@ -165,7 +165,7 @@ func OptDefaultTimeout(duration time.Duration) SetOpt {
 	}
 }
 
-func OptOutputSanitizer(f func([]byte) ([]byte, error)) SetOpt {
+func OptOutputSanitizer(f cleanerFunc) SetOpt {
 	return func(o *Opts) error {
 		o.OutputSanitizer = f
 		return nil
