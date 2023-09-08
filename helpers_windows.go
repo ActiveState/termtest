@@ -8,38 +8,92 @@ import (
 
 var ERR_ACCESS_DENIED = windows.ERROR_ACCESS_DENIED
 
-func cleanPtySnapshot(b []byte, isPosix bool) []byte {
-	b = bytes.TrimRight(b, "\x00")
+const UnicodeEscapeRune = '\u001B'
+const UnicodeBellRune = '\u0007'
+const UnicodeBackspaceRune = '\u0008' // Note in the docs this is \u007f, but in actual use we're seeing \u0008. Possibly badly documented.
 
+// cleanPtySnapshot removes windows console escape sequences from the output so we can interpret it plainly.
+// Ultimately we want to emulate the windows console here, just like we're doing for v10x on posix.
+// The current implementation is geared towards our needs, and won't be able to handle all escape sequences as a result.
+// For details on escape sequences see https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+func cleanPtySnapshot(snapshot []byte, isPosix bool) []byte {
 	if isPosix {
-		return b
+		return snapshot
 	}
 
-	// If non-posix we need to remove virtual escape sequences from the given byte slice
-	// https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
+	// Most escape sequences appear to end on `A-Za-z@`
+	plainVirtualEscapeSeqEndValues := []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@")
 
-	// All escape sequences appear to end on `A-Za-z@`
-	virtualEscapeSeqEndValues := []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz@")
+	// Cheaper than converting to ints
+	numbers := []byte("0123456789")
+
+	// Some escape sequences are more complex, such as window titles
+	recordingCode := false
+	escapeSequenceCode := ""
 	inEscapeSequence := false
+	inTitleEscapeSequence := false
 
-	return bytes.Map(func(r rune) rune {
+	var result []rune
+	runes := bytes.Runes(snapshot)
+	for _, r := range runes {
+		// Reset code recording outside of escape sequence, so we don't have to manually handle this throughout
+		if !inEscapeSequence {
+			recordingCode = false
+			escapeSequenceCode = ""
+		}
 		switch {
-		// Detect start of sequence
-		case !inEscapeSequence && r == 27:
+		// SEQUENCE START
+
+		// Detect start of escape sequence
+		case !inEscapeSequence && r == UnicodeEscapeRune:
 			inEscapeSequence = true
-			return -1
+			recordingCode = true
+			continue
 
-		// Detect end of sequence
-		case inEscapeSequence && bytes.ContainsRune(virtualEscapeSeqEndValues, r):
+		// Detect start of complex escape sequence
+		case inEscapeSequence && !inTitleEscapeSequence && (escapeSequenceCode == "0" || escapeSequenceCode == "2"):
+			inTitleEscapeSequence = true
+			recordingCode = false
+			continue
+
+		// SEQUENCE END
+
+		// Detect end of escape sequence
+		case inEscapeSequence && !inTitleEscapeSequence && bytes.ContainsRune(plainVirtualEscapeSeqEndValues, r):
 			inEscapeSequence = false
-			return -1
+			continue
 
-		// Anything between start and end of escape sequence should also be dropped
+		// Detect end of complex escape sequence
+		case inTitleEscapeSequence && r == UnicodeBellRune:
+			inEscapeSequence = false
+			inTitleEscapeSequence = false
+			continue
+
+		// SEQUENCE CONTINUATION
+
+		case inEscapeSequence && recordingCode:
+			if r == ']' {
+				continue
+			}
+			if !bytes.ContainsRune(numbers, r) {
+				recordingCode = false
+				continue
+			}
+			escapeSequenceCode += string(r)
+
+		// Detect continuation of escape sequence
 		case inEscapeSequence:
-			return -1
+			recordingCode = false
+			continue
+
+		// OUTSIDE OF ESCAPE SEQUENCE
+
+		case r == UnicodeBackspaceRune && len(result) > 0:
+			result = result[:len(result)-1]
 
 		default:
-			return r
+			result = append(result, r)
 		}
-	}, b)
+	}
+	return []byte(string(result))
 }
