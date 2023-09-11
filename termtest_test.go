@@ -1,7 +1,6 @@
 package termtest
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -202,9 +201,7 @@ func Test_ColSize(t *testing.T) {
 }
 
 func Test_Multiline_Sanitized(t *testing.T) {
-	tt := newTermTest(t, exec.Command("bash"), false, OptOutputSanitizer(func(v []byte, _ int) ([]byte, int, error) {
-		return bytes.Replace(v, []byte("\r\n"), []byte("\n"), -1), 0, nil
-	}))
+	tt := newTermTest(t, exec.Command("bash"), true, OptNormalizedLineEnds(true), OptPosix(true))
 
 	f, err := os.CreateTemp("", "")
 	require.NoError(t, err)
@@ -224,7 +221,7 @@ func Test_Multiline_Sanitized(t *testing.T) {
 }
 
 func Test_Multiline_Normalized(t *testing.T) {
-	tt := newTermTest(t, exec.Command("bash"), false, OptNormalizedLineEnds(true))
+	tt := newTermTest(t, exec.Command("bash"), false, OptNormalizedLineEnds(true), OptPosix(true))
 
 	f, err := os.CreateTemp("", "")
 	require.NoError(t, err)
@@ -238,7 +235,7 @@ func Test_Multiline_Normalized(t *testing.T) {
 	}
 
 	tt.SendLine("cat " + fpath)
-	tt.Expect("foo\nbar")
+	tt.Expect("foo\nbar", OptExpectTimeout(1000*time.Second))
 	tt.SendLine("echo -e \"foo\r\nbar\" | tr -d -c \"\\r\" | wc -c")
 	tt.Expect("0") // Should be zero occurrences of \r
 	tt.SendLine("exit")

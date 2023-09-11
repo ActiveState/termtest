@@ -139,10 +139,11 @@ type cleanerFunc func([]byte, int) ([]byte, int, error)
 // For example we may be inside an escape sequence and the escape sequence hasn't finished
 // So instead we only process new output up to the most recent line break
 // In order for this to work properly the invoker must ensure the output and cleanUptoPos are consistent with each other.
-func (o *outputProducer) processDirtyOutput(output []byte, cursorPos int, cleanUptoPos int, isFinal bool, cleaner cleanerFunc) ([]byte, int, int, error) {
+func (o *outputProducer) processDirtyOutput(output []byte, cursorPos int, cleanUptoPos int, isFinal bool, cleaner cleanerFunc) (_output []byte, _cursorPos int, _cleanUptoPos int, _err error) {
 	alreadyCleanedOutput := copyBytes(output[:cleanUptoPos])
 	processedOutput := []byte{}
 	unprocessedOutput := copyBytes(output[cleanUptoPos:])
+	processedCursorPos := cursorPos - len(alreadyCleanedOutput)
 
 	if isFinal {
 		// If we've reached the end there's no point looking for the most recent line break as there's no guarantee the
@@ -163,17 +164,20 @@ func (o *outputProducer) processDirtyOutput(output []byte, cursorPos int, cleanU
 	// Invoke the cleaner now that we have output that can be cleaned
 	if len(processedOutput) > 0 {
 		var err error
-		processedOutput, cursorPos, err = cleaner(processedOutput, cursorPos)
+		processedOutput, processedCursorPos, err = cleaner(processedOutput, processedCursorPos)
 		if err != nil {
-			return processedOutput, cursorPos, cleanUptoPos, fmt.Errorf("cleaner failed: %w", err)
+			return processedOutput, processedCursorPos, cleanUptoPos, fmt.Errorf("cleaner failed: %w", err)
 		}
 	}
+
+	// Convert cursor position back to absolute
+	processedCursorPos += len(alreadyCleanedOutput)
 
 	// Keep a record of what point we're up to
 	cleanUptoPos = cleanUptoPos + len(processedOutput)
 
 	// Stitch everything back together
-	return append(append(alreadyCleanedOutput, processedOutput...), unprocessedOutput...), cursorPos, cleanUptoPos, nil
+	return append(append(alreadyCleanedOutput, processedOutput...), unprocessedOutput...), processedCursorPos, cleanUptoPos, nil
 }
 
 func (o *outputProducer) flushConsumers() error {

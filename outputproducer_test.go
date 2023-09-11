@@ -283,31 +283,36 @@ func Test_outputProducer_appendBuffer(t *testing.T) {
 
 func Test_outputProducer_cleanOutput(t *testing.T) {
 	phraseSanitizer := func(b []byte, cursorPos int) ([]byte, int, error) {
-		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte("sanitized")), -1, nil
+		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte("sanitized")), cursorPos, nil
 	}
 	inc := 0
-	incrementalPhraseSanitizer := func(b []byte, _ int) ([]byte, int, error) {
+	incrementalPhraseSanitizer := func(b []byte, cursorPos int) ([]byte, int, error) {
 		defer func() { inc++ }()
-		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte(fmt.Sprintf("sanitized%d", inc))), -1, nil
+		return regexp.MustCompile(`([\w ]+)`).ReplaceAll(b, []byte(fmt.Sprintf("sanitized%d", inc))), cursorPos, nil
 	}
 
 	type invocation struct {
-		appendBytes []byte
-		isFinal     bool
-		wantOutput  []byte
-		wantPos     int
-		wantErr     require.ErrorAssertionFunc
+		appendBytes            []byte
+		isFinal                bool
+		wantOutput             []byte
+		wantRelCursorPosInput  int // The cursor position sent into the cleaner
+		wantRelCursorPosOutput int // The cursor position returned by the cleaner
+		wantAbsCursorPos       int
+		wantAbsCleanerPos      int
+		wantErr                require.ErrorAssertionFunc
 	}
 	tests := []struct {
 		name        string
 		op          *outputProducer
-		startPos    int
+		cursorPos   int
+		cleanerPos  int
 		cleaner     cleanerFunc
 		invocations []invocation
 	}{
 		{
 			"Do not sanitize unfinished",
 			&outputProducer{},
+			0,
 			0,
 			func([]byte, int) ([]byte, int, error) {
 				return []byte(""), -1, fmt.Errorf("I should not have been invoked")
@@ -318,6 +323,9 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 					false,
 					[]byte("not final cause I dont have a line end"),
 					0,
+					0,
+					0,
+					0,
 					require.NoError,
 				},
 			},
@@ -326,14 +334,18 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 			"Sanitize finished",
 			&outputProducer{},
 			0,
+			0,
 			func([]byte, int) ([]byte, int, error) {
-				return []byte("sanitized"), -1, nil
+				return []byte("sanitized"), 0, nil
 			},
 			[]invocation{
 				{
 					[]byte("final cause I'm sending isFinal=true'"),
 					true,
 					[]byte("sanitized"),
+					0,
+					0,
+					0,
 					9,
 					require.NoError,
 				},
@@ -343,12 +355,16 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 			"Sanitize up to final line end",
 			&outputProducer{},
 			0,
+			0,
 			phraseSanitizer,
 			[]invocation{
 				{
 					[]byte("sanitize\nsanitize\ndont sanitize"),
 					false,
 					[]byte("sanitized\nsanitized\ndont sanitize"),
+					0,
+					0,
+					0,
 					20,
 					require.NoError,
 				},
@@ -357,6 +373,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 		{
 			"Sanitize from pos up to final line end",
 			&outputProducer{},
+			0,
 			21,
 			phraseSanitizer,
 			[]invocation{
@@ -364,6 +381,9 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 					[]byte("previously sanitized\nsanitize\ndont sanitize"),
 					false,
 					[]byte("previously sanitized\nsanitized\ndont sanitize"),
+					-21,
+					-21,
+					0,
 					31,
 					require.NoError,
 				},
@@ -373,6 +393,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 			"Consecutive Invocations",
 			&outputProducer{},
 			0,
+			0,
 			incrementalPhraseSanitizer,
 			[]invocation{
 				{
@@ -380,6 +401,9 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 					[]byte("sanitize me"),
 					false,
 					[]byte("sanitize me"),
+					0,
+					0,
+					0,
 					0,
 					require.NoError,
 				},
@@ -390,6 +414,9 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 					[]byte("\nsanitize me"),
 					false,
 					[]byte("sanitized0\nsanitize me"),
+					0,
+					0,
+					0,
 					11,
 					require.NoError,
 				},
@@ -400,6 +427,9 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 					[]byte("\n"),
 					false,
 					[]byte("sanitized0\nsanitized1\n"),
+					-11,
+					-11,
+					0,
 					22,
 					require.NoError,
 				},
@@ -408,7 +438,31 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 					[]byte("sanitize me"),
 					true,
 					[]byte("sanitized0\nsanitized1\nsanitized2"),
+					-22,
+					-22,
+					0,
 					32,
+					require.NoError,
+				},
+			},
+		},
+		{
+			"Cursor Movement",
+			&outputProducer{},
+			27, // Space before "me" in "sanitize me"
+			18, // End of first linebreak
+			func([]byte, int) ([]byte, int, error) {
+				return []byte("sanitized\n"), 0, nil
+			},
+			[]invocation{
+				{
+					[]byte("already sanitized\nsanitize me\n"),
+					false,
+					[]byte("already sanitized\nsanitized\n"),
+					9,
+					0,
+					18,
+					28,
 					require.NoError,
 				},
 			},
@@ -417,16 +471,29 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := tt.op
-			startPos := tt.startPos
+			cleanerPos := tt.cleanerPos
+			cursorPos := tt.cursorPos
 			output := []byte{}
 			for n, inv := range tt.invocations {
 				cont := t.Run(fmt.Sprintf("%d", n), func(t *testing.T) {
 					output = append(output, inv.appendBytes...)
-					got, _, newStartPos, err := o.processDirtyOutput(output, 0, startPos, inv.isFinal, tt.cleaner)
-					inv.wantErr(t, err, fmt.Sprintf("cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal))
-					require.Equalf(t, string(inv.wantOutput), string(got), "cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal)
-					require.Equalf(t, inv.wantPos, newStartPos, "cleanOutput(%v, %v, %v)", string(inv.appendBytes), tt.startPos, inv.isFinal)
-					startPos = newStartPos
+					got, newCursorPos, newCleanerPos, err := o.processDirtyOutput(
+						output, cursorPos, cleanerPos, inv.isFinal,
+						func(output []byte, cursorPos int) ([]byte, int, error) {
+							require.Equal(t, inv.wantRelCursorPosInput, cursorPos)
+							out, newCursorPos, err := tt.cleaner(output, cursorPos)
+							require.Equal(t, inv.wantRelCursorPosOutput, newCursorPos)
+							return out, newCursorPos, err
+						})
+
+					inv.wantErr(t, err)
+
+					require.Equal(t, string(inv.wantOutput), string(got))
+					require.Equal(t, inv.wantAbsCursorPos, newCursorPos)
+					require.Equal(t, inv.wantAbsCleanerPos, newCleanerPos)
+
+					cleanerPos = newCleanerPos
+					cursorPos = newCursorPos
 					output = got
 				})
 				if !cont {
