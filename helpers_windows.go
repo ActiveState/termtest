@@ -107,5 +107,5 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 			result = append(result, r)
 		}
 	}
-	return []byte(string(result)), cursorPos
+	return []byte(string(result)), newCursorPos
 }
