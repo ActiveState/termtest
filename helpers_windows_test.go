@@ -86,6 +86,13 @@ func Test_cleanPtySequences(t *testing.T) {
 			[]byte("25h    25l █ Installing Runtime (Unconfigured)25h 25l █25h 25l █ Installing Runtime Environment25h 25l Setting Up Runtime       \n  Resolving Dependencies |25h"),
 			159,
 		},
+		{
+			"Escape at first character",
+			[]byte("\u001B[1mfoo"),
+			0,
+			[]byte("foo"),
+			0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -35,7 +35,7 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 
 	newCursorPos := cursorPos
 	dropPos := func(pos int) {
-		if pos <= cursorPos {
+		if pos < cursorPos {
 			newCursorPos--
 		}
 	}
