@@ -37,7 +37,7 @@ func Test_outputProducer_listen(t *testing.T) {
 					{[]byte("Three"), chunkInterval},
 				},
 			},
-			[]string{"One", "Two", "Three"},
+			[]string{"One", "Two", "Three", ""}, // Last append is EOF and should ALWAYS happen
 			nil,
 		},
 		{
@@ -48,7 +48,18 @@ func Test_outputProducer_listen(t *testing.T) {
 					{[]byte(valExceedBuff), chunkInterval},
 				},
 			},
-			[]string{valExceedBuff[:bufferSize], valExceedBuff[bufferSize:]},
+			[]string{valExceedBuff[:bufferSize], valExceedBuff[bufferSize:], ""}, // Last append is EOF and should ALWAYS happen
+			nil,
+		},
+		{
+			"EOF should trigger an append, even if new output is empty",
+			func(t *testing.T) *outputProducer { return newOutputProducer(newTestOpts(nil, t)) },
+			&readTester{
+				[]readTesterChunk{
+					{[]byte("foo"), chunkInterval},
+				},
+			},
+			[]string{"foo", ""},
 			nil,
 		},
 	}
