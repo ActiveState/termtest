@@ -180,6 +180,13 @@ func (o *outputProducer) processDirtyOutput(output []byte, cursorPos int, cleanU
 	// Convert cursor position back to absolute
 	processedCursorPos += len(alreadyCleanedOutput)
 
+	if processedCursorPos < 0 {
+		// Because the cleaner function needs to support a negative cursor position it is impossible for the cleaner
+		// to know when they've reached the start of the output, so we need to facilitate it here.
+		// Alternatively we could teach the cleaner about its absolute position, so it can handle this.
+		processedCursorPos = 0
+	}
+
 	// Keep a record of what point we're up to
 	newCleanUptoPos := cleanUptoPos + len(processedOutput)
 
