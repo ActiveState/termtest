@@ -192,7 +192,13 @@ func setTest(o *Opts, t *testing.T) {
 	o.ExpectErrorHandler = TestErrorHandler(t)
 }
 
-func (tt *TermTest) start() error {
+func (tt *TermTest) start() (rerr error) {
+	expectOpts, err := NewExpectOpts()
+	defer tt.ExpectErrorHandler(&rerr, expectOpts)
+	if err != nil {
+		return fmt.Errorf("could not create expect options: %w", err)
+	}
+
 	if tt.ptmx != nil {
 		return fmt.Errorf("already started")
 	}
@@ -222,7 +228,7 @@ func (tt *TermTest) start() error {
 // Wait will wait for the cmd and pty to close and cleans up all the resources allocated by the TermTest
 // For most tests you probably want to use ExpectExit* instead.
 // Note that unlike ExpectExit*, this will NOT invoke cmd.Wait().
-func (tt *TermTest) Wait(timeout time.Duration) error {
+func (tt *TermTest) Wait(timeout time.Duration) (rerr error) {
 	tt.opts.Logger.Println("wait called")
 	defer tt.opts.Logger.Println("wait closed")
 
@@ -233,8 +239,14 @@ func (tt *TermTest) Wait(timeout time.Duration) error {
 
 	select {
 	case err := <-errc:
+		// WaitIndefinitely already invokes the expect error handler
 		return err
 	case <-time.After(timeout):
+		expectOpts, err := NewExpectOpts()
+		defer tt.ExpectErrorHandler(&rerr, expectOpts)
+		if err != nil {
+			return fmt.Errorf("could not create expect options: %w", err)
+		}
 		return fmt.Errorf("timeout after %s while waiting for command and pty to close: %w", timeout, TimeoutError)
 	}
 }
