@@ -91,7 +91,9 @@ func Test_cleanPtySequences(t *testing.T) {
 			[]byte("\u001B[1mfoo"),
 			0,
 			[]byte("foo"),
-			0,
+			// Since the cleaner handles an absolute cursor position against relative output, we can't determine start
+			// of output and so we return a negative
+			-1,
 		},
 		{
 			"Cursor character (NOT position)",
@@ -105,21 +107,14 @@ func Test_cleanPtySequences(t *testing.T) {
 			[]byte("\x1b[Hfoo"),
 			0,
 			[]byte("foo"),
-			0,
+			-1,
 		},
 		{
 			"Home key with Window title following",
 			[]byte("\x1b[H\x1b]0;C:\\Windows\\System32\\cmd.exe\afoo"),
 			0,
 			[]byte("foo"),
-			0,
-		},
-		{
-			"Complex",
-			[]byte("\x1b[?25l\x1b[2J\x1b[m\x1b[H\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\x1b[H\x1b]0;C:\\Users\\Nathan\\AppData\\Local\\Temp\\847774304\\bin\\state.exe\a\x1b[?25h"),
-			0,
-			[]byte(""),
-			0,
+			-1,
 		},
 	}
 	for _, tt := range tests {

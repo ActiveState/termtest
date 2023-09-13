@@ -322,7 +322,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 	}{
 		{
 			"Do not sanitize unfinished",
-			&outputProducer{},
+			newOutputProducer(newTestOpts(nil, t)),
 			0,
 			0,
 			func([]byte, int) ([]byte, int, error) {
@@ -343,7 +343,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 		},
 		{
 			"Sanitize finished",
-			&outputProducer{},
+			newOutputProducer(newTestOpts(nil, t)),
 			0,
 			0,
 			func([]byte, int) ([]byte, int, error) {
@@ -364,7 +364,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 		},
 		{
 			"Sanitize up to final line end",
-			&outputProducer{},
+			newOutputProducer(newTestOpts(nil, t)),
 			0,
 			0,
 			phraseSanitizer,
@@ -383,7 +383,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 		},
 		{
 			"Sanitize from pos up to final line end",
-			&outputProducer{},
+			newOutputProducer(newTestOpts(nil, t)),
 			0,
 			21,
 			phraseSanitizer,
@@ -402,7 +402,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 		},
 		{
 			"Consecutive Invocations",
-			&outputProducer{},
+			newOutputProducer(newTestOpts(nil, t)),
 			0,
 			0,
 			incrementalPhraseSanitizer,
@@ -459,7 +459,7 @@ func Test_outputProducer_cleanOutput(t *testing.T) {
 		},
 		{
 			"Cursor Movement",
-			&outputProducer{},
+			newOutputProducer(newTestOpts(nil, t)),
 			27, // Space before "me" in "sanitize me"
 			18, // End of first linebreak
 			func([]byte, int) ([]byte, int, error) {
