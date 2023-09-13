@@ -93,6 +93,34 @@ func Test_cleanPtySequences(t *testing.T) {
 			[]byte("foo"),
 			0,
 		},
+		{
+			"Cursor character (NOT position)",
+			[]byte("foo\u001B[?25hbar"),
+			0,
+			[]byte("foobar"),
+			0,
+		},
+		{
+			"Home key",
+			[]byte("\x1b[Hfoo"),
+			0,
+			[]byte("foo"),
+			0,
+		},
+		{
+			"Home key with Window title following",
+			[]byte("\x1b[H\x1b]0;C:\\Windows\\System32\\cmd.exe\afoo"),
+			0,
+			[]byte("foo"),
+			0,
+		},
+		{
+			"Complex",
+			[]byte("\x1b[?25l\x1b[2J\x1b[m\x1b[H\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\x1b[H\x1b]0;C:\\Users\\Nathan\\AppData\\Local\\Temp\\847774304\\bin\\state.exe\a\x1b[?25h"),
+			0,
+			[]byte(""),
+			0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
