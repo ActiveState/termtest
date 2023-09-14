@@ -66,7 +66,7 @@ func (e *outputConsumer) Report(buffer []byte) (int, error) {
 
 	pos, err := e.consume(string(buffer))
 	if err != nil {
-		err = fmt.Errorf("meets threw error: %w", err)
+		err = fmt.Errorf("consumer threw error: %w", err)
 	}
 	if err == nil && pos > len(buffer) {
 		err = fmt.Errorf("consumer returned endPos %d which is greater than buffer length %d", pos, len(buffer))

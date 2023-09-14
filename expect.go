@@ -11,6 +11,7 @@ type ExpectOpts struct {
 	ExpectTimeout bool
 	Timeout       time.Duration
 	ErrorHandler  ErrorHandler
+	ErrorMessage  string
 }
 
 func NewExpectOpts(opts ...SetExpectOpt) (*ExpectOpts, error) {
@@ -33,6 +34,13 @@ func (o *ExpectOpts) ToConsumerOpts() []SetConsOpt {
 }
 
 type SetExpectOpt func(o *ExpectOpts) error
+
+func OptExpectErrorMessage(msg string) SetExpectOpt {
+	return func(o *ExpectOpts) error {
+		o.ErrorMessage = msg
+		return nil
+	}
+}
 
 func OptExpectTimeout(timeout time.Duration) SetExpectOpt {
 	return func(o *ExpectOpts) error {
@@ -82,16 +90,20 @@ func (tt *TermTest) ExpectCustom(consumer consumer, opts ...SetExpectOpt) (rerr 
 	if err != nil {
 		return fmt.Errorf("could not add consumer: %w", err)
 	}
-	return cons.wait()
+	err = cons.wait()
+	if err != nil && expectOpts.ErrorMessage != "" {
+		return fmt.Errorf("%s: %w", expectOpts.ErrorMessage, err)
+	}
+	return err
 }
 
 // Expect listens to the terminal output and returns once the expected value is found or a timeout occurs
 func (tt *TermTest) Expect(value string, opts ...SetExpectOpt) error {
-	tt.opts.Logger.Printf("Expect: %#v\n", string(value))
+	tt.opts.Logger.Printf("Expect: %#v\n", value)
 
 	return tt.ExpectCustom(func(buffer string) (int, error) {
 		return tt.expect(value, buffer)
-	}, opts...)
+	}, append([]SetExpectOpt{OptExpectErrorMessage(fmt.Sprintf("Expected: %#v", value))}, opts...)...)
 }
 
 func (tt *TermTest) expect(value, buffer string) (endPos int, rerr error) {
@@ -118,7 +130,7 @@ func (tt *TermTest) ExpectRe(rx *regexp.Regexp, opts ...SetExpectOpt) error {
 
 	return tt.ExpectCustom(func(buffer string) (int, error) {
 		return expectRe(rx, buffer)
-	}, opts...)
+	}, append([]SetExpectOpt{OptExpectErrorMessage(fmt.Sprintf("Expected Regex: %#v", rx.String()))}, opts...)...)
 }
 
 func expectRe(rx *regexp.Regexp, buffer string) (int, error) {

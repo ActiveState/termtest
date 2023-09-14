@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,10 +53,11 @@ func Test_ExpectCustom(t *testing.T) {
 		opts     []SetExpectOpt
 	}
 	tests := []struct {
-		name    string
-		tt      func(t *testing.T) *TermTest
-		args    args
-		wantErr error
+		name       string
+		tt         func(t *testing.T) *TermTest
+		args       args
+		wantErrMsg string
+		wantErr    error
 	}{
 		{
 			"Simple Hello World Match",
@@ -68,6 +70,7 @@ func Test_ExpectCustom(t *testing.T) {
 				},
 				[]SetExpectOpt{},
 			},
+			"",
 			nil,
 		},
 		{
@@ -81,6 +84,7 @@ func Test_ExpectCustom(t *testing.T) {
 				},
 				[]SetExpectOpt{OptExpectTimeout(time.Second)},
 			},
+			"",
 			TimeoutError,
 		},
 		{
@@ -94,6 +98,21 @@ func Test_ExpectCustom(t *testing.T) {
 				},
 				[]SetExpectOpt{OptExpectTimeout(time.Second)},
 			},
+			"",
+			customErr,
+		},
+		{
+			"error with messaging",
+			func(t *testing.T) *TermTest {
+				return newTermTest(t, exec.Command("bash", "-c", "echo Custom Error"), true)
+			},
+			args{
+				func(buffer string) (endPos int, err error) {
+					return 0, customErr
+				},
+				[]SetExpectOpt{OptExpectTimeout(time.Second), OptExpectErrorMessage("Error Message")},
+			},
+			fmt.Errorf("Error Message: consumer threw error: %w", customErr).Error(),
 			customErr,
 		},
 	}
@@ -184,6 +203,9 @@ func Test_Expect_Timeout(t *testing.T) {
 	for _, duration := range durations {
 		ti := time.Now()
 		err := tt.Expect("No match", OptExpectTimeout(duration), OptExpectSilenceErrorHandler())
+		if strings.Index(err.Error(), "Expected:") == -1 {
+			t.Errorf("Should include error message asserting what it timed out waiting for, got: %s", err)
+		}
 		if !errors.Is(err, TimeoutError) {
 			t.Errorf("Expected timeout, but got %s", err)
 		}
