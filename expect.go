@@ -87,7 +87,7 @@ func (tt *TermTest) ExpectCustom(consumer consumer, opts ...SetExpectOpt) (rerr 
 
 // Expect listens to the terminal output and returns once the expected value is found or a timeout occurs
 func (tt *TermTest) Expect(value string, opts ...SetExpectOpt) error {
-	tt.opts.Logger.Printf("Expect: %s\n", value)
+	tt.opts.Logger.Printf("Expect: %#v\n", string(value))
 
 	return tt.ExpectCustom(func(buffer string) (int, error) {
 		return tt.expect(value, buffer)
@@ -100,7 +100,7 @@ func (tt *TermTest) expect(value, buffer string) (endPos int, rerr error) {
 		value = NormalizeLineEnds(value)
 	}
 
-	tt.opts.Logger.Printf("expect: '%s', buffer: '%s'\n", value, strings.Trim(strings.TrimSpace(buffer), "\x00"))
+	tt.opts.Logger.Printf("expect: '%#v', buffer: '%#v'\n", string(value), strings.Trim(strings.TrimSpace(buffer), "\x00"))
 	defer func() {
 		tt.opts.Logger.Printf("Match: %v\n", endPos > 0)
 	}()
