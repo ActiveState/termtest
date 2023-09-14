@@ -82,7 +82,7 @@ func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer 
 	}
 
 	if n > 0 {
-		o.opts.Logger.Printf("outputProducer read %d bytes from pty, value: %s", n, snapshot[:n])
+		o.opts.Logger.Printf("outputProducer read %d bytes from pty, value: %#v", n, string(snapshot[:n]))
 		if _, err := w.Write(snapshot[:n]); err != nil {
 			return fmt.Errorf("could not write: %w", err)
 		}
