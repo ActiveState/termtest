@@ -71,6 +71,7 @@ func test_Pty_Deadlock(t *testing.T, script string, emulate bool) {
 			fmt.Println("Confirm matched")
 			pos += found + len(confirmMsg)
 			ptyrw.Write([]byte("y\n"))
+			fmt.Println("Write done")
 		}
 		if err != nil {
 			if err != io.EOF {
