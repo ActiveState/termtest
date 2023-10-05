@@ -3,12 +3,17 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
-	"github.com/AlecAivazis/survey/v2"
+	"gopkg.in/AlecAivazis/survey.v1"
 )
 
 func main() {
-	for x := 0; x < 10; x++ {
+	total, err := strconv.Atoi(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+	for x := 0; x < total; x++ {
 		// perform the questions
 		var answer bool
 		err := survey.AskOne(&survey.Confirm{
