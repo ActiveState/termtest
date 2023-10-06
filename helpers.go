@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-type VoidLogger struct{}
+type voidLogger struct{}
 
-func (v VoidLogger) Write(p []byte) (n int, err error) { return len(p), nil }
+func (v voidLogger) Write(p []byte) (n int, err error) { return len(p), nil }
 
 var neverGonnaHappen = time.Hour * 24 * 365 * 100
 

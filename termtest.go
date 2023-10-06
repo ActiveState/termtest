@@ -43,6 +43,8 @@ var TimeoutError = errors.New("timeout")
 
 var VerboseLogger = log.New(os.Stderr, "TermTest: ", log.LstdFlags|log.Lshortfile)
 
+var VoidLogger = log.New(voidLogger{}, "", 0)
+
 type SetOpt func(o *Opts) error
 
 const DefaultCols = 140
@@ -50,7 +52,7 @@ const DefaultRows = 10
 
 func NewOpts() *Opts {
 	return &Opts{
-		Logger: log.New(VoidLogger{}, "TermTest: ", log.LstdFlags|log.Lshortfile),
+		Logger: VoidLogger,
 		ExpectErrorHandler: func(_ *TermTest, err error) error {
 			panic(err)
 		},
