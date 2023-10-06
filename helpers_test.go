@@ -60,7 +60,7 @@ func newTermTest(t *testing.T, cmd *exec.Cmd, logging bool, opts ...SetOpt) *Ter
 	tt, err := New(cmd, append(opts, func(o *Opts) error {
 		o = newTestOpts(o, t)
 		if !logging {
-			o.Logger = log.New(voidWriter{}, "TermTest: ", log.LstdFlags)
+			o.Logger = log.New(VoidLogger{}, "TermTest: ", log.LstdFlags)
 		}
 		return nil
 	}, OptTestErrorHandler(t))...)

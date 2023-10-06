@@ -50,7 +50,7 @@ const DefaultRows = 10
 
 func NewOpts() *Opts {
 	return &Opts{
-		Logger: log.New(voidWriter{}, "TermTest: ", log.LstdFlags|log.Lshortfile),
+		Logger: log.New(VoidLogger{}, "TermTest: ", log.LstdFlags|log.Lshortfile),
 		ExpectErrorHandler: func(_ *TermTest, err error) error {
 			panic(err)
 		},
