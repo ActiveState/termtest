@@ -1,0 +1,65 @@
+name: unit-tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    env:
+      GOFLAGS: "-mod=vendor"
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    steps:
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20.x
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Set up gotestfmt
+        uses: gotesttools/gotestfmt-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Environment info
+        shell: bash
+        run: |
+          echo "Go Version:"
+          go version
+          echo "\nGo env:"
+          go env
+          echo "\nPATH:"
+          echo $PATH
+
+      - name: Build
+        shell: bash
+        run: go build -v .
+
+      - name: Test
+        shell: bash
+        run: go test -v . -json 2>&1 | gotestfmt -hide empty-packages
+        id: test
+        continue-on-error: true
+
+      - name: Raw Test (debug mode only)
+        shell: bash
+        if: runner.debug == '1'
+        run: go test -v .
+        id: debug
+        continue-on-error: true
+
+      - name: Tests Successful
+        shell: bash
+        if: steps.test.outcome == 'failure' || steps.debug.outcome == 'failure'
+        run: exit 1
