@@ -41,6 +41,8 @@ type Opts struct {
 
 var TimeoutError = errors.New("timeout")
 
+var VerboseLogger = log.New(os.Stderr, "TermTest: ", log.LstdFlags|log.Lshortfile)
+
 type SetOpt func(o *Opts) error
 
 const DefaultCols = 140
@@ -94,9 +96,13 @@ func SilenceErrorHandler() ErrorHandler {
 	}
 }
 
-func OptVerboseLogging() SetOpt {
+func OptVerboseLogger() SetOpt {
+	return OptLogger(VerboseLogger)
+}
+
+func OptLogger(logger *log.Logger) SetOpt {
 	return func(o *Opts) error {
-		o.Logger = log.New(os.Stderr, "TermTest: ", log.LstdFlags|log.Lshortfile)
+		o.Logger = logger
 		return nil
 	}
 }
@@ -181,6 +187,10 @@ func OptNormalizedLineEnds(v bool) SetOpt {
 
 func (tt *TermTest) SetErrorHandler(handler ErrorHandler) {
 	tt.opts.ExpectErrorHandler = handler
+}
+
+func (tt *TermTest) SetLogger(logger *log.Logger) {
+	tt.opts.Logger = logger
 }
 
 func (tt *TermTest) SetTest(t *testing.T) {
