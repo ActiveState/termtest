@@ -238,12 +238,12 @@ func (o *outputProducer) flushConsumers() error {
 	return nil
 }
 
-func (o *outputProducer) addConsumer(consume consumer, opts ...SetConsOpt) (*outputConsumer, error) {
+func (o *outputProducer) addConsumer(tt *TermTest, consume consumer, opts ...SetConsOpt) (*outputConsumer, error) {
 	o.opts.Logger.Printf("adding consumer")
 	defer o.opts.Logger.Printf("added consumer")
 
 	opts = append(opts, OptConsInherit(o.opts))
-	listener := newOutputConsumer(consume, opts...)
+	listener := newOutputConsumer(tt, consume, opts...)
 	o.consumers = append(o.consumers, listener)
 
 	if err := o.flushConsumers(); err != nil {

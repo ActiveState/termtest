@@ -24,6 +24,7 @@ type TermTest struct {
 	outputProducer *outputProducer
 	listenError    chan error
 	opts           *Opts
+	exited         *cmdExit
 }
 
 type ErrorHandler func(*TermTest, error) error
@@ -233,6 +234,10 @@ func (tt *TermTest) start() (rerr error) {
 		tt.listenError <- err
 	}()
 	wg.Wait()
+
+	go func() {
+		tt.exited = <-waitForCmdExit(tt.cmd)
+	}()
 
 	return nil
 }

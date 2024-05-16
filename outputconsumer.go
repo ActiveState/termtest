@@ -15,6 +15,7 @@ type outputConsumer struct {
 	opts     *OutputConsumerOpts
 	isalive  bool
 	mutex    *sync.Mutex
+	tt       *TermTest
 }
 
 type OutputConsumerOpts struct {
@@ -36,7 +37,7 @@ func OptsConsTimeout(timeout time.Duration) func(o *OutputConsumerOpts) {
 	}
 }
 
-func newOutputConsumer(consume consumer, opts ...SetConsOpt) *outputConsumer {
+func newOutputConsumer(tt *TermTest, consume consumer, opts ...SetConsOpt) *outputConsumer {
 	oc := &outputConsumer{
 		consume: consume,
 		opts: &OutputConsumerOpts{
@@ -46,6 +47,7 @@ func newOutputConsumer(consume consumer, opts ...SetConsOpt) *outputConsumer {
 		waiter:  make(chan error, 1),
 		isalive: true,
 		mutex:   &sync.Mutex{},
+		tt:      tt,
 	}
 
 	for _, optSetter := range opts {
@@ -101,5 +103,11 @@ func (e *outputConsumer) wait() error {
 		e.mutex.Lock()
 		e.opts.Logger.Println("Encountered timeout")
 		return fmt.Errorf("after %s: %w", e.opts.Timeout, TimeoutError)
+	case state := <-ttExited(e.tt, true):
+		e.mutex.Lock()
+		if state.Err != nil {
+			e.opts.Logger.Println("Encountered error waiting for process to exit: %s\n", state.Err.Error())
+		}
+		return fmt.Errorf("process exited (status: %d)", state.ProcessState.ExitCode())
 	}
 }

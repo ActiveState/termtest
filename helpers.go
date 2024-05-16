@@ -18,25 +18,49 @@ var neverGonnaHappen = time.Hour * 24 * 365 * 100
 var lineSepPosix = "\n"
 var lineSepWindows = "\r\n"
 
+var processExitPollInterval = 10 * time.Millisecond
+var processExitExtraWait = 500 * time.Millisecond
+
 type cmdExit struct {
 	ProcessState *os.ProcessState
 	Err          error
 }
 
 // waitForCmdExit turns process.wait() into a channel so that it can be used within a select{} statement
-func waitForCmdExit(cmd *exec.Cmd) chan cmdExit {
-	exit := make(chan cmdExit, 1)
+func waitForCmdExit(cmd *exec.Cmd) chan *cmdExit {
+	exit := make(chan *cmdExit, 1)
 	go func() {
 		err := cmd.Wait()
-		exit <- cmdExit{ProcessState: cmd.ProcessState, Err: err}
+		exit <- &cmdExit{ProcessState: cmd.ProcessState, Err: err}
 	}()
 	return exit
+}
+
+// ttExited returns a channel that sends the given termtest's command cmdExit info when available.
+// This can be used within a select{} statement.
+// If waitExtra is given, waits a little bit before sending cmdExit info. This allows any fellow
+// switch cases to handle unprocessed stdout.
+func ttExited(tt *TermTest, waitExtra bool) chan *cmdExit {
+	return waitChan(func() *cmdExit {
+		ticker := time.NewTicker(processExitPollInterval)
+		for {
+			select {
+			case <-ticker.C:
+				if tt.exited != nil {
+					if waitExtra {
+						time.Sleep(processExitExtraWait)
+					}
+					return tt.exited
+				}
+			}
+		}
+	})
 }
 
 func waitChan[T any](wait func() T) chan T {
 	done := make(chan T)
 	go func() {
-		wait()
+		done <- wait()
 		close(done)
 	}()
 	return done
