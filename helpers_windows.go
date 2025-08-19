@@ -2,11 +2,7 @@ package termtest
 
 import (
 	"bytes"
-
-	"golang.org/x/sys/windows"
 )
-
-var ERR_ACCESS_DENIED = windows.ERROR_ACCESS_DENIED
 
 const UnicodeEscapeRune = '\u001B'
 const UnicodeBellRune = '\u0007'
@@ -50,6 +46,11 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 		}
 		switch {
 		// SEQUENCE START
+
+		// Delete alert / bell sequence
+		case !inEscapeSequence && r == '\a':
+			dropPos(pos)
+			continue
 
 		// Detect start of escape sequence
 		case !inEscapeSequence && r == UnicodeEscapeRune:

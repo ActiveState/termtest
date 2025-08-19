@@ -116,6 +116,13 @@ func Test_cleanPtySequences(t *testing.T) {
 			[]byte("foo"),
 			-1,
 		},
+		{
+			"Alert / bell character",
+			[]byte("\aP\x1b[?25lython 3.9.5"),
+			0,
+			[]byte("Python 3.9.5"),
+			-1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
