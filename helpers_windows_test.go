@@ -123,6 +123,13 @@ func Test_cleanPtySequences(t *testing.T) {
 			[]byte("Python 3.9.5"),
 			-1,
 		},
+		{
+			"Unterminated escape sequence",
+			[]byte("\x1b[?25"),
+			0,
+			[]byte("\x1b[?25"),
+			-1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

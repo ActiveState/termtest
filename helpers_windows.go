@@ -12,9 +12,9 @@ const UnicodeBackspaceRune = '\u0008' // Note in the docs this is \u007f, but in
 // Ultimately we want to emulate the windows console here, just like we're doing for v10x on posix.
 // The current implementation is geared towards our needs, and won't be able to handle all escape sequences as a result.
 // For details on escape sequences see https://learn.microsoft.com/en-us/windows/console/console-virtual-terminal-sequences
-func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int) {
+func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) (_output []byte, _cursorPos int, _cleanUptoPos int) {
 	if isPosix {
-		return snapshot, cursorPos
+		return snapshot, cursorPos, len(snapshot)
 	}
 
 	// Most escape sequences appear to end on `A-Za-z@`
@@ -37,7 +37,10 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 	}
 
 	var result []rune
+	var unterminatedEscape []rune
 	runes := bytes.Runes(snapshot)
+	escapeStartPos := -1
+
 	for pos, r := range runes {
 		// Reset code recording outside of escape sequence, so we don't have to manually handle this throughout
 		if !inEscapeSequence {
@@ -48,7 +51,7 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 		// SEQUENCE START
 
 		// Delete alert / bell sequence
-		case !inEscapeSequence && r == '\a':
+		case !inEscapeSequence && r == UnicodeBellRune:
 			dropPos(pos)
 			continue
 
@@ -56,6 +59,7 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 		case !inEscapeSequence && r == UnicodeEscapeRune:
 			inEscapeSequence = true
 			recordingCode = true
+			escapeStartPos = pos
 			dropPos(pos)
 			continue
 
@@ -71,6 +75,7 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 		// Detect end of escape sequence
 		case inEscapeSequence && !inTitleEscapeSequence && bytes.ContainsRune(plainVirtualEscapeSeqEndValues, r):
 			inEscapeSequence = false
+			escapeStartPos = -1
 			dropPos(pos)
 			continue
 
@@ -78,6 +83,7 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 		case inTitleEscapeSequence && r == UnicodeBellRune:
 			inEscapeSequence = false
 			inTitleEscapeSequence = false
+			escapeStartPos = -1
 			dropPos(pos)
 			continue
 
@@ -108,5 +114,13 @@ func cleanPtySnapshot(snapshot []byte, cursorPos int, isPosix bool) ([]byte, int
 			result = append(result, r)
 		}
 	}
-	return []byte(string(result)), newCursorPos
+
+	// If we're still in an escape sequence at the end, retain the unterminated sequence
+	cleanUptoPos := len(result)
+	if inEscapeSequence && escapeStartPos >= 0 {
+		unterminatedEscape = runes[escapeStartPos:]
+		result = append(result, unterminatedEscape...)
+	}
+
+	return []byte(string(result)), newCursorPos, cleanUptoPos
 }

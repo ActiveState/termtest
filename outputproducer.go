@@ -2,7 +2,6 @@ package termtest
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -66,13 +65,15 @@ func (o *outputProducer) listen(r io.Reader, w io.Writer, appendBuffer func([]by
 var PtyEOF = errors.New("pty closed")
 
 func (o *outputProducer) processNextRead(r io.Reader, w io.Writer, appendBuffer func([]byte, bool) error, size int) error {
+	isEOF := false
 	o.opts.Logger.Printf("processNextRead started with size: %d\n", size)
-	defer o.opts.Logger.Println("processNextRead stopped")
+	defer func() {
+		o.opts.Logger.Printf("processNextRead stopped, isEOF: %v\n", isEOF)
+	}()
 
 	snapshot := make([]byte, size)
 	n, errRead := r.Read(snapshot)
 
-	isEOF := false
 	if errRead != nil {
 		pathError := &fs.PathError{}
 		if errors.Is(errRead, fs.ErrClosed) || errors.Is(errRead, io.EOF) || (runtime.GOOS == "linux" && errors.As(errRead, &pathError)) {
@@ -116,13 +117,13 @@ func (o *outputProducer) appendBuffer(value []byte, isFinal bool) error {
 
 	// Clean output
 	var err error
-	o.output, o.cursorPos, o.cleanUptoPos, err = o.processDirtyOutput(output, o.cursorPos, o.cleanUptoPos, isFinal, func(output []byte, cursorPos int) ([]byte, int, error) {
+	o.output, o.cursorPos, o.cleanUptoPos, err = o.processDirtyOutput(output, o.cursorPos, o.cleanUptoPos, isFinal, func(output []byte, cursorPos int) ([]byte, int, int, error) {
 		var err error
-		output, cursorPos = cleanPtySnapshot(output, cursorPos, o.opts.Posix)
+		output, cursorPos, cleanCursorPos := cleanPtySnapshot(output, cursorPos, o.opts.Posix)
 		if o.opts.OutputSanitizer != nil {
-			output, cursorPos, err = o.opts.OutputSanitizer(output, cursorPos)
+			output, cursorPos, cleanCursorPos, err = o.opts.OutputSanitizer(output, cursorPos)
 		}
-		return output, cursorPos, err
+		return output, cursorPos, cleanCursorPos, err
 	})
 	if err != nil {
 		return fmt.Errorf("cleaning output failed: %w", err)
@@ -138,7 +139,7 @@ func (o *outputProducer) appendBuffer(value []byte, isFinal bool) error {
 	return nil
 }
 
-type cleanerFunc func([]byte, int) ([]byte, int, error)
+type cleanerFunc func(snapshot []byte, cursorPos int) (newSnapshot []byte, newCursorPos int, cleanUptoPos int, err error)
 
 // processDirtyOutput will sanitize the output received, but we have to be careful not to clean output that hasn't fully arrived
 // For example we may be inside an escape sequence and the escape sequence hasn't finished
@@ -146,40 +147,28 @@ type cleanerFunc func([]byte, int) ([]byte, int, error)
 // In order for this to work properly the invoker must ensure the output and cleanUptoPos are consistent with each other.
 func (o *outputProducer) processDirtyOutput(output []byte, cursorPos int, cleanUptoPos int, isFinal bool, cleaner cleanerFunc) (_output []byte, _cursorPos int, _cleanUptoPos int, _err error) {
 	defer func() {
-		o.opts.Logger.Printf("Cleaned output from %d to %d\n", cleanUptoPos, _cleanUptoPos)
+		o.opts.Logger.Printf("Cleaned output from %d to %d (isFinal: %v)\n", cleanUptoPos, _cleanUptoPos, isFinal)
 	}()
 	alreadyCleanedOutput := copyBytes(output[:cleanUptoPos])
 	processedOutput := []byte{}
 	unprocessedOutput := copyBytes(output[cleanUptoPos:])
-	processedCursorPos := cursorPos - len(alreadyCleanedOutput)
-
-	if isFinal {
-		// If we've reached the end there's no point looking for the most recent line break as there's no guarantee the
-		// output will be terminated by a newline.
-		processedOutput = copyBytes(unprocessedOutput)
-		unprocessedOutput = []byte{}
-	} else {
-		// Find the most recent line break, and only clean until that point.
-		// Any output after the most recent line break is considered not ready for cleaning as cleaning depends on
-		// multiple consecutive characters.
-		lineSepN := bytes.LastIndex(unprocessedOutput, []byte("\n"))
-		if lineSepN != -1 {
-			processedOutput = copyBytes(unprocessedOutput[0 : lineSepN+1])
-			unprocessedOutput = unprocessedOutput[lineSepN+1:]
-		}
-	}
+	relativeCursorPos := cursorPos - len(alreadyCleanedOutput)
 
 	// Invoke the cleaner now that we have output that can be cleaned
-	if len(processedOutput) > 0 {
+	newCleanUptoPos := cleanUptoPos
+	if len(unprocessedOutput) > 0 {
 		var err error
-		processedOutput, processedCursorPos, err = cleaner(processedOutput, processedCursorPos)
+		var processedCleanUptoPos int
+		processedOutput, relativeCursorPos, processedCleanUptoPos, err = cleaner(unprocessedOutput, relativeCursorPos)
 		if err != nil {
-			return processedOutput, processedCursorPos, cleanUptoPos, fmt.Errorf("cleaner failed: %w", err)
+			return processedOutput, relativeCursorPos, processedCleanUptoPos, fmt.Errorf("cleaner failed: %w", err)
 		}
+		// Keep a record of what point we're up to
+		newCleanUptoPos += processedCleanUptoPos
 	}
 
 	// Convert cursor position back to absolute
-	processedCursorPos += len(alreadyCleanedOutput)
+	processedCursorPos := relativeCursorPos + len(alreadyCleanedOutput)
 
 	if processedCursorPos < 0 {
 		// Because the cleaner function needs to support a negative cursor position it is impossible for the cleaner
@@ -188,11 +177,8 @@ func (o *outputProducer) processDirtyOutput(output []byte, cursorPos int, cleanU
 		processedCursorPos = 0
 	}
 
-	// Keep a record of what point we're up to
-	newCleanUptoPos := cleanUptoPos + len(processedOutput)
-
 	// Stitch everything back together
-	return append(append(alreadyCleanedOutput, processedOutput...), unprocessedOutput...), processedCursorPos, newCleanUptoPos, nil
+	return append(alreadyCleanedOutput, processedOutput...), processedCursorPos, newCleanUptoPos, nil
 }
 
 func (o *outputProducer) closeConsumers(reason error) {

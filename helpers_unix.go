@@ -9,6 +9,6 @@ import (
 
 var ERR_ACCESS_DENIED = errors.New("only used on windows, this should never match")
 
-func cleanPtySnapshot(b []byte, cursorPos int, _ bool) ([]byte, int) {
-	return b, cursorPos
+func cleanPtySnapshot(b []byte, cursorPos int, _ bool) ([]byte, int, int) {
+	return b, cursorPos, len(b)
 }
