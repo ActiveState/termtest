@@ -7,7 +7,10 @@ import (
 	"time"
 
 	gopsutil "github.com/shirou/gopsutil/v3/process"
+	"golang.org/x/sys/windows"
 )
+
+var ERR_ACCESS_DENIED = windows.ERROR_ACCESS_DENIED
 
 func syscallErrorCode(err error) int {
 	if errv, ok := err.(syscall.Errno); ok {
